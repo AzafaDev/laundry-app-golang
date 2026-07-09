@@ -5,6 +5,7 @@ import (
 	"laundry-app-with-golang/internal/config"
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/server"
 	"log"
 )
 
@@ -19,8 +20,15 @@ func main() {
 	}
 	defer pool.Close()
 
-	queris := db.New(pool)
-	_ = queris
+	queries := db.New(pool)
+	_ = queries
+
+	router := server.NewRouter()
+	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")
+
+	if err := router.Run(port); err != nil {
+		log.Fatalf("failed to run server: %v", err)
+	}
 }

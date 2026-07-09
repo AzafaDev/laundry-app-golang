@@ -1,7 +1,7 @@
 include .env
 export
 
-.PHONY: run build migrate-up migrate-down docker-up docker-down
+.PHONY: run build migrate-up migrate-down docker-up docker-down dev
 
 run:
 	go run ./cmd/api
@@ -15,3 +15,5 @@ docker-up:
 	docker compose up -d
 docker-down:
 	docker compose down
+dev:
+	air
