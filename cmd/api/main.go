@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"laundry-app-with-golang/internal/config"
+	"laundry-app-with-golang/internal/customer"
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/server"
@@ -21,9 +22,9 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	_ = queries
+	customerHandler := customer.NewHandler(queries)
 
-	router := server.NewRouter()
+	router := server.NewRouter(customerHandler)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")
