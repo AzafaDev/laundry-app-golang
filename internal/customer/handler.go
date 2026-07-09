@@ -3,6 +3,7 @@ package customer
 import (
 	"errors"
 	"laundry-app-with-golang/internal/auth"
+	"laundry-app-with-golang/internal/config"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -14,11 +15,13 @@ import (
 
 type Handler struct {
 	Queries *db.Queries
+	Config  config.Config
 }
 
-func NewHandler(queries *db.Queries) *Handler {
+func NewHandler(queries *db.Queries, cfg config.Config) *Handler {
 	return &Handler{
 		Queries: queries,
+		Config:  cfg,
 	}
 }
 
@@ -58,4 +61,52 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) Login(c *gin.Context) {
+	var req LoginRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	customer, err := h.Queries.GetCustomerByEmail(c.Request.Context(), req.Email)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
+
+	if customer.PasswordHash.Valid {
+		if err := auth.ComparePassword(customer.PasswordHash.String, req.Password); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+			return
+		}
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
+
+	token, err := auth.GenerateAccessToken(customer.ID.String(), h.Config.JWTAccessSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var secure bool
+	if h.Config.GoEnv == "production" {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetCookie("access_token", token, 15*60, "/", "", secure, true)
+
+	resp := CustomerResponse{
+		ID:       customer.ID.String(),
+		FullName: customer.FullName,
+		Email:    customer.Email,
+	}
+
+	c.JSON(http.StatusOK, resp)
 }

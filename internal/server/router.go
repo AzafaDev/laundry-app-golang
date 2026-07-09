@@ -13,6 +13,7 @@ func NewRouter(customerHandler *customer.Handler) *gin.Engine {
 	router.GET("/health", healthCheck)
 
 	router.POST("/api/v1/customer/register", customerHandler.Register)
+	router.POST("/api/v1/customer/login", customerHandler.Login)
 
 	return router
 }

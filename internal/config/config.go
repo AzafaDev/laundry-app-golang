@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseURL      string
 	JWTAccessSecret  string
 	JWTRefreshSecret string
+	GoEnv            string
 }
 
 func Load() Config {
@@ -24,6 +25,7 @@ func Load() Config {
 		DatabaseURL:      mustGetEnv("DATABASE_URL"),
 		JWTAccessSecret:  mustGetEnv("JWT_ACCESS_SECRET"),
 		JWTRefreshSecret: mustGetEnv("JWT_REFRESH_SECRET"),
+		GoEnv:            getEnv("GO_ENV", "development"),
 	}
 }
 

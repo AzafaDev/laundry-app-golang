@@ -22,7 +22,7 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	customerHandler := customer.NewHandler(queries)
+	customerHandler := customer.NewHandler(queries, cfg)
 
 	router := server.NewRouter(customerHandler)
 	port := ":" + cfg.Port
