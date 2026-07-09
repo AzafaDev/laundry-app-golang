@@ -24,7 +24,7 @@ func main() {
 	queries := db.New(pool)
 	customerHandler := customer.NewHandler(queries, cfg)
 
-	router := server.NewRouter(customerHandler)
+	router := server.NewRouter(customerHandler, cfg)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")
