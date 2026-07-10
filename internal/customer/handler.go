@@ -190,3 +190,25 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{})
 }
+
+func (h *Handler) Logout(c *gin.Context) {
+	refreshToken, _ := c.Cookie("refresh_token")
+
+	if refreshToken != "" {
+		hashedRefreshToken := auth.HashToken(refreshToken)
+		existing, _ := h.Queries.GetRefreshTokenByHash(c.Request.Context(), hashedRefreshToken)
+		h.Queries.RevokeRefreshToken(c.Request.Context(), existing.ID)
+	}
+
+	var secure bool
+	if h.Config.GoEnv == "production" {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetCookie("access_token", "", -1, "/", "", secure, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", secure, true)
+
+	c.JSON(http.StatusOK, gin.H{})
+}

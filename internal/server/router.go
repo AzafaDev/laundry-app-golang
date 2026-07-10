@@ -15,12 +15,11 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config) *gin.Engine
 	router.GET("/health", healthCheck)
 
 	router.GET("/api/v1/customer/me", middleware.AuthMiddleware(cfg.JWTAccessSecret), customerHandler.Me)
-	
-	router.POST("/api/v1/customer/register", customerHandler.Register)
-	router.POST("/api/v1/customer/login", customerHandler.Login)
+
+	router.POST("/api/v1/customer/auth/register", customerHandler.Register)
+	router.POST("/api/v1/customer/auth/login", customerHandler.Login)
 	router.POST("/api/v1/customer/auth/refresh", customerHandler.Refresh)
-
-
+	router.POST("/api/v1/customer/auth/logout", customerHandler.Logout)
 
 	return router
 }
