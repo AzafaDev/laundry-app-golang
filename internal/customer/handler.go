@@ -134,3 +134,59 @@ func (h *Handler) Me(c *gin.Context) {
 	customerID, _ := c.Get("customer_id")
 	c.JSON(http.StatusOK, gin.H{"customer_id": customerID})
 }
+
+func (h *Handler) Refresh(c *gin.Context) {
+	refreshToken, err := c.Cookie("refresh_token")
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedRefreshToken := auth.HashToken(refreshToken)
+	existingRefreshToken, err := h.Queries.GetRefreshTokenByHash(c.Request.Context(), hashedRefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.Queries.RevokeRefreshToken(c.Request.Context(), existingRefreshToken.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	newRefreshToken, err := auth.GenerateRefreshToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	accessToken, err := auth.GenerateAccessToken(existingRefreshToken.CustomerID.String(), h.Config.JWTAccessSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedNewRefreshToken := auth.HashToken(newRefreshToken)
+	_, err = h.Queries.CreateRefreshToken(c.Request.Context(), db.CreateRefreshTokenParams{
+		CustomerID: existingRefreshToken.CustomerID,
+		TokenHash:  hashedNewRefreshToken,
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(7 * 24 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error in inserting refresh token to db"})
+		return
+	}
+
+	var secure bool
+	if h.Config.GoEnv == "production" {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
+	c.SetCookie("refresh_token", newRefreshToken, 7*24*60*60, "/", "", secure, true)
+
+	c.JSON(http.StatusOK, gin.H{})
+}
