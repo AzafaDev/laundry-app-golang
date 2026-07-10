@@ -6,6 +6,7 @@ import (
 	"laundry-app-with-golang/internal/config"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgerrcode"
@@ -93,6 +94,23 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	refreshToken, err := auth.GenerateRefreshToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedRefreshToken := auth.HashToken(refreshToken)
+	_, err = h.Queries.CreateRefreshToken(c.Request.Context(), db.CreateRefreshTokenParams{
+		CustomerID: customer.ID,
+		TokenHash:  hashedRefreshToken,
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(7 * 24 * time.Hour), Valid: true},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error in inserting refresh token to db"})
+		return
+	}
+
 	var secure bool
 	if h.Config.GoEnv == "production" {
 		secure = true
@@ -101,6 +119,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	c.SetCookie("access_token", token, 15*60, "/", "", secure, true)
+	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
 
 	resp := CustomerResponse{
 		ID:       customer.ID.String(),
