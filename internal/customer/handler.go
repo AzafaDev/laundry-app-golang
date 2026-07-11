@@ -268,3 +268,49 @@ func (h *Handler) Verify(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "email verified successfully!"})
 }
+
+func (h *Handler) ResendVerification(c *gin.Context) {
+	var req ResendVerificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	customer, err := h.Queries.GetCustomerByEmail(c.Request.Context(), req.Email)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
+		return
+	}
+
+	if customer.IsVerified {
+		c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
+		return
+	}
+
+	token, err := auth.GenerateRandomToken()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
+		return
+	}
+
+	hashedToken := auth.HashToken(token)
+
+	createEmailVerificationTokenParams := db.CreateEmailVerificationTokenParams{
+		CustomerID: customer.ID,
+		TokenHash:  hashedToken,
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(1 * time.Hour), Valid: true},
+	}
+
+	_, err = h.Queries.CreateEmailVerificationToken(c.Request.Context(), createEmailVerificationTokenParams)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
+		return
+	}
+
+	err = h.emailClient.SendVerificationEmail(customer.Email, token)
+	if err != nil {
+		log.Printf("error in sending verification email: %v", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
+}
