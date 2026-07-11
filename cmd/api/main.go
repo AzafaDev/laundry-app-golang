@@ -8,6 +8,7 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/email"
 	"laundry-app-with-golang/internal/server"
+	"laundry-app-with-golang/internal/storage"
 	"log"
 )
 
@@ -24,9 +25,15 @@ func main() {
 
 	queries := db.New(pool)
 	emailClient := email.NewClient(cfg.ResendAPIKey, cfg.AppBaseURL)
-	customerHandler := customer.NewHandler(queries, cfg, emailClient)
 
-	router := server.NewRouter(customerHandler, cfg)
+	storageClient, err := storage.NewClient(cfg.CloudinaryURL)
+	if err != nil {
+		log.Fatalf("failed to init cloudinary client: %v", err)
+	}
+
+	customerHandler := customer.NewHandler(queries, cfg, emailClient, storageClient)
+
+	router := server.NewRouter(customerHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

@@ -32,6 +32,18 @@ func (c *Client) SendVerificationEmail(to, token string) error {
 	return err
 }
 
+func (c *Client) SendEmailChangeVerification(to, token string) error {
+	params := &resend.SendEmailRequest{
+		From:    c.from,
+		To:      []string{to},
+		Subject: "Verify your new email",
+		Html:    fmt.Sprintf("<p>Your email change verification token: <strong>%s</strong></p><p>Submit this token to POST %s/api/v1/customer/profile/email/verify</p>", token, c.baseURL),
+	}
+
+	_, err := c.resend.Emails.Send(params)
+	return err
+}
+
 func (c *Client) SendPasswordResetEmail(to, token string) error {
 	params := &resend.SendEmailRequest{
 		From:    c.from,

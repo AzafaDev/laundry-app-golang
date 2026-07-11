@@ -20,6 +20,17 @@ type Customer struct {
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	AvatarUrl    pgtype.Text        `json:"avatar_url"`
+}
+
+type EmailChangeToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	CustomerID pgtype.UUID        `json:"customer_id"`
+	NewEmail   string             `json:"new_email"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type EmailVerificationToken struct {

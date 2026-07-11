@@ -14,7 +14,7 @@ import (
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO customers (full_name, email, password_hash)
 VALUES ($1, $2, $3)
-RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
 `
 
 type CreateCustomerParams struct {
@@ -38,12 +38,13 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getCustomerByEmail = `-- name: GetCustomerByEmail :one
-SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at FROM customers
+SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url FROM customers
 WHERE email = $1 AND deleted_at IS NULL
 `
 
@@ -62,12 +63,13 @@ func (q *Queries) GetCustomerByEmail(ctx context.Context, email string) (Custome
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getCustomerByID = `-- name: GetCustomerByID :one
-SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at FROM customers
+SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url FROM customers
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -86,6 +88,98 @@ func (q *Queries) GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const incrementCustomerTokenVersion = `-- name: IncrementCustomerTokenVersion :one
+UPDATE customers
+SET token_version = token_version + 1
+WHERE id = $1
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
+`
+
+func (q *Queries) IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error) {
+	row := q.db.QueryRow(ctx, incrementCustomerTokenVersion, id)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const updateCustomerAvatar = `-- name: UpdateCustomerAvatar :one
+UPDATE customers
+SET avatar_url = $1
+WHERE id = $2
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
+`
+
+type UpdateCustomerAvatarParams struct {
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+	ID        pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, updateCustomerAvatar, arg.AvatarUrl, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const updateCustomerEmail = `-- name: UpdateCustomerEmail :one
+UPDATE customers
+SET email = $1
+WHERE id = $2
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
+`
+
+type UpdateCustomerEmailParams struct {
+	Email string      `json:"email"`
+	ID    pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, updateCustomerEmail, arg.Email, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -94,7 +188,7 @@ const updateCustomerPassword = `-- name: UpdateCustomerPassword :one
 UPDATE customers
 SET password_hash = $1
 WHERE id = $2
-RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
 `
 
 type UpdateCustomerPasswordParams struct {
@@ -117,6 +211,40 @@ func (q *Queries) UpdateCustomerPassword(ctx context.Context, arg UpdateCustomer
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const updateCustomerProfile = `-- name: UpdateCustomerProfile :one
+UPDATE customers
+SET full_name = $1, phone = $2
+WHERE id = $3
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
+`
+
+type UpdateCustomerProfileParams struct {
+	FullName string      `json:"full_name"`
+	Phone    pgtype.Text `json:"phone"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, updateCustomerProfile, arg.FullName, arg.Phone, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarUrl,
 	)
 	return i, err
 }

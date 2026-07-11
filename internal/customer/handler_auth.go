@@ -100,7 +100,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := auth.GenerateAccessToken(customer.ID.String(), h.Config.JWTAccessSecret)
+	token, err := auth.GenerateAccessToken(customer.ID.String(), customer.TokenVersion, h.Config.JWTAccessSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -168,7 +168,14 @@ func (h *Handler) Refresh(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	accessToken, err := auth.GenerateAccessToken(existingRefreshToken.CustomerID.String(), h.Config.JWTAccessSecret)
+
+	customer, err := h.Queries.GetCustomerByID(c.Request.Context(), existingRefreshToken.CustomerID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+		return
+	}
+
+	accessToken, err := auth.GenerateAccessToken(customer.ID.String(), customer.TokenVersion, h.Config.JWTAccessSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -370,7 +377,13 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateAccessToken(updatedCustomer.ID.String(), h.Config.JWTAccessSecret)
+	bumpedCustomer, err := h.Queries.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	accessToken, err := auth.GenerateAccessToken(bumpedCustomer.ID.String(), bumpedCustomer.TokenVersion, h.Config.JWTAccessSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

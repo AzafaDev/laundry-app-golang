@@ -8,13 +8,15 @@ import (
 )
 
 type CustomerClaims struct {
-	CustomerID string `json:"customer_id"`
+	CustomerID   string `json:"customer_id"`
+	TokenVersion int32  `json:"token_version"`
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(customerID, secret string) (string, error) {
+func GenerateAccessToken(customerID string, tokenVersion int32, secret string) (string, error) {
 	claims := CustomerClaims{
-		CustomerID: customerID,
+		CustomerID:   customerID,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 		},

@@ -13,10 +13,12 @@ type LoginRequest struct {
 }
 
 type CustomerResponse struct {
-	ID       string `json:"id"`
-	FullName string `json:"full_name"`
-	Email    string `json:"email"`
-	Message  string `json:"message"`
+	ID        string `json:"id"`
+	FullName  string `json:"full_name"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone,omitempty"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+	Message   string `json:"message"`
 }
 
 type VerifyRequest struct {
@@ -41,4 +43,18 @@ type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
 	NewPassword     string `json:"new_password" binding:"required,min=8"`
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=NewPassword"`
+}
+
+type UpdateProfileRequest struct {
+	FullName string `json:"full_name" binding:"required"`
+	Phone    string `json:"phone" binding:"required"`
+}
+
+type RequestEmailChangeRequest struct {
+	NewEmail        string `json:"new_email" binding:"required,email"`
+	CurrentPassword string `json:"current_password" binding:"required"`
+}
+
+type VerifyEmailChangeRequest struct {
+	Token string `json:"token" binding:"required"`
 }

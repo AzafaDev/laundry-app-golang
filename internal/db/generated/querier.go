@@ -12,19 +12,26 @@ import (
 
 type Querier interface {
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
+	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
+	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
+	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
+	UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error)
+	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)
+	UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (Customer, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
 }
 
