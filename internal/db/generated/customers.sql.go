@@ -66,6 +66,30 @@ func (q *Queries) GetCustomerByEmail(ctx context.Context, email string) (Custome
 	return i, err
 }
 
+const getCustomerByID = `-- name: GetCustomerByID :one
+SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at FROM customers
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error) {
+	row := q.db.QueryRow(ctx, getCustomerByID, id)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateCustomerPassword = `-- name: UpdateCustomerPassword :one
 UPDATE customers
 SET password_hash = $1

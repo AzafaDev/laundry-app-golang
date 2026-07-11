@@ -17,3 +17,7 @@ UPDATE customers
 SET password_hash = $1
 WHERE id = $2
 RETURNING *;
+
+-- name: GetCustomerByID :one
+SELECT * FROM customers
+WHERE id = $1 AND deleted_at IS NULL;
