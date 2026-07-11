@@ -6,12 +6,23 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/middleware"
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func NewRouter(customerHandler *customer.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{cfg.FrontendURL},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	authMiddleware := middleware.AuthMiddleware(cfg.JWTAccessSecret, queries)
 
 	router.GET("/health", healthCheck)

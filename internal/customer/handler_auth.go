@@ -143,6 +143,7 @@ func (h *Handler) Login(c *gin.Context) {
 		secure = false
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", token, 15*60, "/", "", secure, true)
 	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
 
@@ -212,6 +213,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		secure = false
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
 	c.SetCookie("refresh_token", newRefreshToken, 7*24*60*60, "/", "", secure, true)
 
@@ -234,6 +236,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		secure = false
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", "", -1, "/", "", secure, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", secure, true)
 
@@ -440,6 +443,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		secure = false
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
 	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
 

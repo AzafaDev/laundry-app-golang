@@ -166,6 +166,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		secure = false
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
 	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
 

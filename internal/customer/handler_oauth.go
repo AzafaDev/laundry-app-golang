@@ -18,6 +18,13 @@ func (h *Handler) cookieSecure() bool {
 	return h.Config.GoEnv == "production"
 }
 
+func (h *Handler) cookieSameSite() http.SameSite {
+	if h.Config.GoEnv == "production" {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
 func (h *Handler) GoogleLogin(c *gin.Context) {
 	state, err := auth.GenerateRandomToken()
 	if err != nil {
@@ -25,6 +32,7 @@ func (h *Handler) GoogleLogin(c *gin.Context) {
 		return
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("oauth_state", state, 300, "/", "", h.cookieSecure(), true)
 
 	c.Redirect(http.StatusTemporaryRedirect, h.googleClient.AuthCodeURL(state))
@@ -45,6 +53,7 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("oauth_state", "", -1, "/", "", h.cookieSecure(), true)
 
 	code := c.Query("code")
