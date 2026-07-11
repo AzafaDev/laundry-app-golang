@@ -13,6 +13,8 @@ type Config struct {
 	JWTAccessSecret  string
 	JWTRefreshSecret string
 	GoEnv            string
+	ResendAPIKey     string
+	AppBaseURL       string
 }
 
 func Load() Config {
@@ -26,6 +28,8 @@ func Load() Config {
 		JWTAccessSecret:  mustGetEnv("JWT_ACCESS_SECRET"),
 		JWTRefreshSecret: mustGetEnv("JWT_REFRESH_SECRET"),
 		GoEnv:            getEnv("GO_ENV", "development"),
+		ResendAPIKey:     mustGetEnv("RESEND_API_KEY"),
+		AppBaseURL:       getEnv("APP_BASE_URL", "http://localhost:8080"),
 	}
 }
 

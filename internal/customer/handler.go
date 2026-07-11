@@ -5,6 +5,8 @@ import (
 	"laundry-app-with-golang/internal/auth"
 	"laundry-app-with-golang/internal/config"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/email"
+	"log"
 	"net/http"
 	"time"
 
@@ -15,14 +17,16 @@ import (
 )
 
 type Handler struct {
-	Queries *db.Queries
-	Config  config.Config
+	Queries     *db.Queries
+	Config      config.Config
+	emailClient *email.Client
 }
 
-func NewHandler(queries *db.Queries, cfg config.Config) *Handler {
+func NewHandler(queries *db.Queries, cfg config.Config, email *email.Client) *Handler {
 	return &Handler{
-		Queries: queries,
-		Config:  cfg,
+		Queries:     queries,
+		Config:      cfg,
+		emailClient: email,
 	}
 }
 
@@ -55,10 +59,34 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	token, err := auth.GenerateRandomToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	emailVerificationParams := db.CreateEmailVerificationTokenParams{
+		CustomerID: customer.ID,
+		TokenHash:  auth.HashToken(token),
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(1 * time.Hour), Valid: true},
+	}
+
+	_, err = h.Queries.CreateEmailVerificationToken(c.Request.Context(), emailVerificationParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.emailClient.SendVerificationEmail(customer.Email, token)
+	if err != nil {
+		log.Printf("error in sending verification email: %v", err)
+	}
+
 	resp := CustomerResponse{
 		ID:       customer.ID.String(),
 		FullName: customer.FullName,
 		Email:    customer.Email,
+		Message:  "Email verification has been sent to your email!",
 	}
 
 	c.JSON(http.StatusCreated, resp)
@@ -94,7 +122,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	refreshToken, err := auth.GenerateRefreshToken()
+	refreshToken, err := auth.GenerateRandomToken()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -156,7 +184,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
-	newRefreshToken, err := auth.GenerateRefreshToken()
+	newRefreshToken, err := auth.GenerateRandomToken()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

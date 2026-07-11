@@ -6,6 +6,7 @@ import (
 	"laundry-app-with-golang/internal/customer"
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/email"
 	"laundry-app-with-golang/internal/server"
 	"log"
 )
@@ -22,7 +23,8 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	customerHandler := customer.NewHandler(queries, cfg)
+	emailClient := email.NewClient(cfg.ResendAPIKey, cfg.AppBaseURL)
+	customerHandler := customer.NewHandler(queries, cfg, emailClient)
 
 	router := server.NewRouter(customerHandler, cfg)
 	port := ":" + cfg.Port

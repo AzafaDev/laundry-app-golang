@@ -22,6 +22,15 @@ type Customer struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type EmailVerificationToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	CustomerID pgtype.UUID        `json:"customer_id"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Employee struct {
 	ID           pgtype.UUID        `json:"id"`
 	FullName     string             `json:"full_name"`

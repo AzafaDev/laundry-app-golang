@@ -16,4 +16,5 @@ type CustomerResponse struct {
 	ID       string `json:"id"`
 	FullName string `json:"full_name"`
 	Email    string `json:"email"`
+	Message  string `json:"message"`
 }
