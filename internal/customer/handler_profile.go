@@ -6,6 +6,7 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -99,6 +100,12 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	req.NewPassword = strings.TrimSpace(req.NewPassword)
+	if len(req.NewPassword) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		return
+	}
+
 	hashedPassword, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -178,6 +185,17 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	req.FullName = strings.TrimSpace(req.FullName)
+	if len(req.FullName) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "full name is required"})
+		return
+	}
+	req.Phone = strings.TrimSpace(req.Phone)
+	if len(req.Phone) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone is required"})
 		return
 	}
 
