@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/email"
+	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/server"
 	"laundry-app-with-golang/internal/storage"
 	"log"
@@ -31,7 +32,9 @@ func main() {
 		log.Fatalf("failed to init cloudinary client: %v", err)
 	}
 
-	customerHandler := customer.NewHandler(queries, cfg, emailClient, storageClient)
+	googleClient := oauthpkg.NewGoogleClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.AppBaseURL)
+
+	customerHandler := customer.NewHandler(queries, cfg, emailClient, storageClient, googleClient)
 
 	router := server.NewRouter(customerHandler, cfg, queries)
 	port := ":" + cfg.Port

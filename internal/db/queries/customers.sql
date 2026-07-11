@@ -45,3 +45,8 @@ UPDATE customers
 SET token_version = token_version + 1
 WHERE id = $1
 RETURNING *;
+
+-- name: CreateOAuthCustomer :one
+INSERT INTO customers (full_name, email, is_verified)
+VALUES ($1, $2, true)
+RETURNING *;

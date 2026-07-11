@@ -43,6 +43,37 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 	return i, err
 }
 
+const createOAuthCustomer = `-- name: CreateOAuthCustomer :one
+INSERT INTO customers (full_name, email, is_verified)
+VALUES ($1, $2, true)
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
+`
+
+type CreateOAuthCustomerParams struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+}
+
+func (q *Queries) CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, createOAuthCustomer, arg.FullName, arg.Email)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
 const getCustomerByEmail = `-- name: GetCustomerByEmail :one
 SELECT id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url FROM customers
 WHERE email = $1 AND deleted_at IS NULL

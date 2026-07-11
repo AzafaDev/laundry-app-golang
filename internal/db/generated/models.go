@@ -73,3 +73,11 @@ type RefreshToken struct {
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
+
+type SocialAccount struct {
+	ID          pgtype.UUID        `json:"id"`
+	CustomerID  pgtype.UUID        `json:"customer_id"`
+	Provider    string             `json:"provider"`
+	ProviderUid string             `json:"provider_uid"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}

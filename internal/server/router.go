@@ -27,10 +27,12 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config, queries *db
 	router.POST("/api/v1/customer/auth/resend-verification", customerHandler.ResendVerification)
 	router.POST("/api/v1/customer/auth/forgot-password", customerHandler.ForgotPassword)
 	router.POST("/api/v1/customer/auth/reset-password", customerHandler.ResetPassword)
+	router.GET("/api/v1/customer/auth/google", customerHandler.GoogleLogin)
+	router.GET("/api/v1/customer/auth/google/callback", customerHandler.GoogleCallback)
 
 	router.PATCH("/api/v1/customer/profile", authMiddleware, customerHandler.UpdateProfile)
 	router.PATCH("/api/v1/customer/profile/password", authMiddleware, customerHandler.ChangePassword)
-	
+
 	router.POST("/api/v1/customer/profile/email", authMiddleware, customerHandler.RequestEmailChange)
 	router.POST("/api/v1/customer/profile/email/verify", authMiddleware, customerHandler.VerifyEmailChange)
 	router.POST("/api/v1/customer/profile/avatar", authMiddleware, customerHandler.UploadAvatar)
