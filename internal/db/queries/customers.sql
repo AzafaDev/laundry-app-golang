@@ -6,3 +6,8 @@ RETURNING *;
 -- name: GetCustomerByEmail :one
 SELECT * FROM customers
 WHERE email = $1 AND deleted_at IS NULL;
+
+-- name: VerifyCustomerEmail :exec
+UPDATE customers
+SET is_verified = true
+WHERE id = $1;

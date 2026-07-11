@@ -240,3 +240,31 @@ func (h *Handler) Logout(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{})
 }
+
+func (h *Handler) Verify(c *gin.Context) {
+	var req VerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedToken := auth.HashToken(req.Token)
+
+	emailVerificationToken, err := h.Queries.GetEmailVerificationByTokenHash(c.Request.Context(), hashedToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid or expired token"})
+		return
+	}
+
+	if err = h.Queries.MarkEmailVerificationTokenUsed(c.Request.Context(), emailVerificationToken.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err = h.Queries.VerifyCustomerEmail(c.Request.Context(), emailVerificationToken.CustomerID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "email verified successfully!"})
+}

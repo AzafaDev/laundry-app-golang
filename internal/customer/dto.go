@@ -18,3 +18,7 @@ type CustomerResponse struct {
 	Email    string `json:"email"`
 	Message  string `json:"message"`
 }
+
+type VerifyRequest struct {
+	Token string `json:"token" binding:"required"`
+}

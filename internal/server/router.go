@@ -20,6 +20,7 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config) *gin.Engine
 	router.POST("/api/v1/customer/auth/login", customerHandler.Login)
 	router.POST("/api/v1/customer/auth/refresh", customerHandler.Refresh)
 	router.POST("/api/v1/customer/auth/logout", customerHandler.Logout)
+	router.POST("/api/v1/customer/auth/verify", customerHandler.Verify)
 
 	return router
 }

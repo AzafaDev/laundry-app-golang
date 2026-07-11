@@ -25,7 +25,7 @@ func (c *Client) SendVerificationEmail(to, token string) error {
 		From:    c.from,
 		To:      []string{to},
 		Subject: "Verify your email",
-		Html:    fmt.Sprintf("<p>Click <a href=\"%s/api/v1/customer/auth/verify?token=%s\">here</a> to verify your email.</p>", c.baseURL, token),
+		Html:    fmt.Sprintf("<p>Your verification token: <strong>%s</strong></p><p>Submit this token to POST %s/api/v1/customer/auth/verify</p>", token, c.baseURL),
 	}
 
 	_, err := c.resend.Emails.Send(params)

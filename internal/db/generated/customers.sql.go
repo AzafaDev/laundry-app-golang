@@ -65,3 +65,14 @@ func (q *Queries) GetCustomerByEmail(ctx context.Context, email string) (Custome
 	)
 	return i, err
 }
+
+const verifyCustomerEmail = `-- name: VerifyCustomerEmail :exec
+UPDATE customers
+SET is_verified = true
+WHERE id = $1
+`
+
+func (q *Queries) VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, verifyCustomerEmail, id)
+	return err
+}
