@@ -314,3 +314,129 @@ func (h *Handler) ResendVerification(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "verification email has been sent!"})
 }
+
+func (h *Handler) ForgotPassword(c *gin.Context) {
+	var req ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	existing, err := h.Queries.GetCustomerByEmail(c.Request.Context(), req.Email)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "password reset email has been sent!"})
+		return
+	}
+
+	token, err := auth.GenerateRandomToken()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "password reset email has been sent!"})
+		return
+	}
+
+	hashedToken := auth.HashToken(token)
+
+	params := db.CreatePasswordResetTokenParams{
+		CustomerID: existing.ID,
+		TokenHash:  hashedToken,
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(1 * time.Hour), Valid: true},
+	}
+	_, err = h.Queries.CreatePasswordResetToken(c.Request.Context(), params)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "password reset email has been sent!"})
+		return
+	}
+
+	if err = h.emailClient.SendPasswordResetEmail(existing.Email, token); err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "password reset email has been sent!"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "password reset email has been sent!"})
+}
+
+func (h *Handler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedToken := auth.HashToken(req.Token)
+
+	passwordResetToken, err := h.Queries.GetPasswordResetTokenByHash(c.Request.Context(), hashedToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	hashedPassword, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	updatedCustomerPasswordParams := db.UpdateCustomerPasswordParams{
+		PasswordHash: pgtype.Text{String: hashedPassword, Valid: true},
+		ID:           passwordResetToken.CustomerID,
+	}
+	updatedCustomer, err := h.Queries.UpdateCustomerPassword(c.Request.Context(), updatedCustomerPasswordParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err = h.Queries.MarkPasswordResetTokenUsed(c.Request.Context(), passwordResetToken.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	accessToken, err := auth.GenerateAccessToken(updatedCustomer.ID.String(), h.Config.JWTAccessSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	refreshToken, err := auth.GenerateRandomToken()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	hashedRefreshToken := auth.HashToken(refreshToken)
+
+	createRefreshTokenParams := db.CreateRefreshTokenParams{
+		CustomerID: updatedCustomer.ID,
+		TokenHash:  hashedRefreshToken,
+		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(7 * 24 * time.Hour), Valid: true},
+	}
+
+	if err = h.Queries.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	_, err = h.Queries.CreateRefreshToken(c.Request.Context(), createRefreshTokenParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var secure bool
+	if h.Config.GoEnv == "production" {
+		secure = true
+	} else {
+		secure = false
+	}
+
+	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
+	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
+
+	customerResponse := CustomerResponse{
+		ID:       updatedCustomer.ID.String(),
+		FullName: updatedCustomer.FullName,
+		Email:    updatedCustomer.Email,
+		Message:  "reset password successfully!",
+	}
+	c.JSON(http.StatusOK, customerResponse)
+}

@@ -11,3 +11,9 @@ WHERE email = $1 AND deleted_at IS NULL;
 UPDATE customers
 SET is_verified = true
 WHERE id = $1;
+
+-- name: UpdateCustomerPassword :one
+UPDATE customers
+SET password_hash = $1
+WHERE id = $2
+RETURNING *;

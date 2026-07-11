@@ -31,3 +31,15 @@ func (c *Client) SendVerificationEmail(to, token string) error {
 	_, err := c.resend.Emails.Send(params)
 	return err
 }
+
+func (c *Client) SendPasswordResetEmail(to, token string) error {
+	params := &resend.SendEmailRequest{
+		From:    c.from,
+		To:      []string{to},
+		Subject: "Reset your password",
+		Html:    fmt.Sprintf("<p>Your password reset token: <strong>%s</strong></p>", token),
+	}
+
+	_, err := c.resend.Emails.Send(params)
+	return err
+}

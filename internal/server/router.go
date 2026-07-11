@@ -22,6 +22,8 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config) *gin.Engine
 	router.POST("/api/v1/customer/auth/logout", customerHandler.Logout)
 	router.POST("/api/v1/customer/auth/verify", customerHandler.Verify)
 	router.POST("/api/v1/customer/auth/resend-verification", customerHandler.ResendVerification)
+	router.POST("/api/v1/customer/auth/forgot-password", customerHandler.ForgotPassword)
+	router.POST("/api/v1/customer/auth/reset-password", customerHandler.ResetPassword)
 
 	return router
 }

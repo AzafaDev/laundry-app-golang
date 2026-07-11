@@ -66,6 +66,37 @@ func (q *Queries) GetCustomerByEmail(ctx context.Context, email string) (Custome
 	return i, err
 }
 
+const updateCustomerPassword = `-- name: UpdateCustomerPassword :one
+UPDATE customers
+SET password_hash = $1
+WHERE id = $2
+RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at
+`
+
+type UpdateCustomerPasswordParams struct {
+	PasswordHash pgtype.Text `json:"password_hash"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error) {
+	row := q.db.QueryRow(ctx, updateCustomerPassword, arg.PasswordHash, arg.ID)
+	var i Customer
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.IsVerified,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const verifyCustomerEmail = `-- name: VerifyCustomerEmail :exec
 UPDATE customers
 SET is_verified = true
