@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"context"
 	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
@@ -69,4 +70,29 @@ func (h *Handler) issueTokens(c *gin.Context, customerID pgtype.UUID, tokenVersi
 	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", h.cookieSecure(), true)
 
 	return accessToken, refreshToken, nil
+}
+
+// setPrimaryAddress atomically unsets any existing primary address for the
+// customer and marks addressID as the new primary, inside a single
+// transaction so the customer never ends up with zero or multiple primaries.
+func (h *Handler) setPrimaryAddress(ctx context.Context, customerID, addressID pgtype.UUID) error {
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := h.Queries.WithTx(tx)
+
+	if err := qtx.UnsetPrimaryAddresses(ctx, customerID); err != nil {
+		return err
+	}
+	if _, err := qtx.SetAddressPrimary(ctx, db.SetAddressPrimaryParams{
+		ID:         addressID,
+		CustomerID: customerID,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

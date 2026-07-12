@@ -34,7 +34,7 @@ func main() {
 
 	googleClient := oauthpkg.NewGoogleClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.AppBaseURL)
 
-	customerHandler := customer.NewHandler(queries, cfg, emailClient, storageClient, googleClient)
+	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient)
 
 	router := server.NewRouter(customerHandler, cfg, queries)
 	port := ":" + cfg.Port
