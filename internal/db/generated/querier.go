@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	CreateAddress(ctx context.Context, arg CreateAddressParams) (CustomerAddress, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
@@ -18,19 +19,26 @@ type Querier interface {
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateSocialAccount(ctx context.Context, arg CreateSocialAccountParams) (SocialAccount, error)
+	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
+	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (CustomerAddress, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
+	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
+	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]CustomerAddress, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
+	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (CustomerAddress, error)
+	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
+	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (CustomerAddress, error)
 	UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error)
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)

@@ -23,6 +23,22 @@ type Customer struct {
 	AvatarUrl    pgtype.Text        `json:"avatar_url"`
 }
 
+type CustomerAddress struct {
+	ID         pgtype.UUID        `json:"id"`
+	CustomerID pgtype.UUID        `json:"customer_id"`
+	Label      string             `json:"label"`
+	Address    string             `json:"address"`
+	Province   string             `json:"province"`
+	City       string             `json:"city"`
+	District   string             `json:"district"`
+	PostalCode pgtype.Text        `json:"postal_code"`
+	Latitude   pgtype.Numeric     `json:"latitude"`
+	Longitude  pgtype.Numeric     `json:"longitude"`
+	IsPrimary  bool               `json:"is_primary"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EmailChangeToken struct {
 	ID         pgtype.UUID        `json:"id"`
 	CustomerID pgtype.UUID        `json:"customer_id"`
