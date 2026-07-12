@@ -1,17 +1,12 @@
 package customer
 
 import (
-	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (h *Handler) cookieSecure() bool {
@@ -85,31 +80,10 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateAccessToken(customer.ID.String(), customer.TokenVersion, h.Config.JWTAccessSecret)
-	if err != nil {
+	if _, _, err := h.issueTokens(c, customer.ID, customer.TokenVersion); err != nil {
 		c.Redirect(http.StatusTemporaryRedirect, failRedirect)
 		return
 	}
-
-	refreshToken, err := auth.GenerateRandomToken()
-	if err != nil {
-		c.Redirect(http.StatusTemporaryRedirect, failRedirect)
-		return
-	}
-
-	hashedRefreshToken := auth.HashToken(refreshToken)
-	_, err = h.Queries.CreateRefreshToken(c.Request.Context(), db.CreateRefreshTokenParams{
-		CustomerID: customer.ID,
-		TokenHash:  hashedRefreshToken,
-		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(7 * 24 * time.Hour), Valid: true},
-	})
-	if err != nil {
-		c.Redirect(http.StatusTemporaryRedirect, failRedirect)
-		return
-	}
-
-	c.SetCookie("access_token", accessToken, 15*60, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", h.cookieSecure(), true)
 
 	c.Redirect(http.StatusTemporaryRedirect, h.Config.FrontendURL+"/auth/callback?success=true")
 }
@@ -137,13 +111,12 @@ func (h *Handler) resolveOAuthCustomer(c *gin.Context, userInfo *oauthpkg.UserIn
 		return existingCustomer, nil
 	}
 
-	var pgErr *pgconn.PgError
 	newCustomer, err := h.Queries.CreateOAuthCustomer(ctx, db.CreateOAuthCustomerParams{
 		FullName: userInfo.Name,
 		Email:    userInfo.Email,
 	})
 
-	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+	if isUniqueViolation(err) {
 		newCustomer, err = h.Queries.GetCustomerByEmail(ctx, userInfo.Email)
 		if err != nil {
 			return db.Customer{}, err

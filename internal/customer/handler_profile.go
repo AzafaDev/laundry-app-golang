@@ -1,7 +1,6 @@
 package customer
 
 import (
-	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -10,8 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -29,20 +26,8 @@ func (h *Handler) Me(c *gin.Context) {
 }
 
 func (h *Handler) Profile(c *gin.Context) {
-	var customerUUID pgtype.UUID
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
+	customerUUID, _, err := h.currentCustomerID(c)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -65,26 +50,14 @@ func (h *Handler) Profile(c *gin.Context) {
 
 func (h *Handler) ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
-	var customerUUID pgtype.UUID
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	customerID, ok := c.Get("customer_id")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	customerIDStr, ok := customerID.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
+	customerUUID, _, err := h.currentCustomerID(c)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -134,41 +107,10 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := auth.GenerateAccessToken(bumpedCustomer.ID.String(), bumpedCustomer.TokenVersion, h.Config.JWTAccessSecret)
-	if err != nil {
+	if _, _, err := h.issueTokens(c, bumpedCustomer.ID, bumpedCustomer.TokenVersion); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	refreshToken, err := auth.GenerateRandomToken()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	hashedRefreshToken := auth.HashToken(refreshToken)
-
-	createRefreshTokenParams := db.CreateRefreshTokenParams{
-		CustomerID: updatedCustomer.ID,
-		TokenHash:  hashedRefreshToken,
-		ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(7 * 24 * time.Hour), Valid: true},
-	}
-
-	if _, err := h.Queries.CreateRefreshToken(c.Request.Context(), createRefreshTokenParams); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	var secure bool
-	if h.Config.GoEnv == "production" {
-		secure = true
-	} else {
-		secure = false
-	}
-
-	c.SetSameSite(h.cookieSameSite())
-	c.SetCookie("access_token", accessToken, 15*60, "/", "", secure, true)
-	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", secure, true)
 
 	customerResponse := CustomerResponse{
 		ID:       updatedCustomer.ID.String(),
@@ -182,7 +124,6 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	var req UpdateProfileRequest
-	var customerUUID pgtype.UUID
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -200,19 +141,8 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
+	customerUUID, _, err := h.currentCustomerID(c)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -242,26 +172,14 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 func (h *Handler) RequestEmailChange(c *gin.Context) {
 	var req RequestEmailChangeRequest
-	var customerUUID pgtype.UUID
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
+	customerUUID, _, err := h.currentCustomerID(c)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -309,7 +227,6 @@ func (h *Handler) RequestEmailChange(c *gin.Context) {
 
 func (h *Handler) VerifyEmailChange(c *gin.Context) {
 	var req VerifyEmailChangeRequest
-	var pgErr *pgconn.PgError
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -329,7 +246,7 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 		ID:    emailChangeToken.CustomerID,
 	})
 
-	if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+	if isUniqueViolation(err) {
 		c.JSON(http.StatusConflict, gin.H{"error": "email has been registered"})
 		return
 	}
@@ -355,21 +272,8 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 }
 
 func (h *Handler) UploadAvatar(c *gin.Context) {
-	var customerUUID pgtype.UUID
-
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "something went wrong"})
-		return
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
+	customerUUID, customerIDStr, err := h.currentCustomerID(c)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
