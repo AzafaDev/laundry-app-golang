@@ -2,30 +2,38 @@ package email
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/resend/resend-go/v2"
 )
 
 type Client struct {
-	resend  *resend.Client
-	from    string
-	baseURL string
+	resend      *resend.Client
+	from        string
+	baseURL     string
+	frontendURL string
 }
 
-func NewClient(apiKey string, baseURL string) *Client {
+func NewClient(apiKey, baseURL, frontendURL string) *Client {
 	return &Client{
-		resend:  resend.NewClient(apiKey),
-		from:    "noreply@azafadev.web.id",
-		baseURL: baseURL,
+		resend:      resend.NewClient(apiKey),
+		from:        "noreply@azafadev.web.id",
+		baseURL:     baseURL,
+		frontendURL: frontendURL,
 	}
 }
 
 func (c *Client) SendVerificationEmail(to, token string) error {
+	verifyLink := fmt.Sprintf("%s/verify-email?token=%s", c.frontendURL, url.QueryEscape(token))
+
 	params := &resend.SendEmailRequest{
 		From:    c.from,
 		To:      []string{to},
 		Subject: "Verify your email",
-		Html:    fmt.Sprintf("<p>Your verification token: <strong>%s</strong></p><p>Submit this token to POST %s/api/v1/customer/auth/verify</p>", token, c.baseURL),
+		Html: fmt.Sprintf(
+			`<p>Click <a href="%s">here</a> to verify your email.</p><p>Or enter this code manually: <strong>%s</strong></p>`,
+			verifyLink, token,
+		),
 	}
 
 	_, err := c.resend.Emails.Send(params)

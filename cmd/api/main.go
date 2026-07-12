@@ -25,7 +25,7 @@ func main() {
 	defer pool.Close()
 
 	queries := db.New(pool)
-	emailClient := email.NewClient(cfg.ResendAPIKey, cfg.AppBaseURL)
+	emailClient := email.NewClient(cfg.ResendAPIKey, cfg.AppBaseURL, cfg.FrontendURL)
 
 	storageClient, err := storage.NewClient(cfg.CloudinaryURL)
 	if err != nil {
