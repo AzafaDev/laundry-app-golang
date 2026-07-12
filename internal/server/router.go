@@ -48,6 +48,12 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config, queries *db
 	router.POST("/api/v1/customer/profile/email/verify", authMiddleware, customerHandler.VerifyEmailChange)
 	router.POST("/api/v1/customer/profile/avatar", authMiddleware, customerHandler.UploadAvatar)
 
+	router.GET("/api/v1/customer/addresses", authMiddleware, customerHandler.ListAddresses)
+	router.POST("/api/v1/customer/addresses", authMiddleware, customerHandler.CreateAddress)
+	router.PATCH("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.UpdateAddress)
+	router.PATCH("/api/v1/customer/addresses/:id/primary", authMiddleware, customerHandler.SetPrimaryAddress)
+	router.DELETE("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.DeleteAddress)
+
 	return router
 }
 
