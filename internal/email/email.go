@@ -53,11 +53,16 @@ func (c *Client) SendEmailChangeVerification(to, token string) error {
 }
 
 func (c *Client) SendPasswordResetEmail(to, token string) error {
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", c.frontendURL, url.QueryEscape(token))
+
 	params := &resend.SendEmailRequest{
 		From:    c.from,
 		To:      []string{to},
 		Subject: "Reset your password",
-		Html:    fmt.Sprintf("<p>Your password reset token: <strong>%s</strong></p>", token),
+		Html: fmt.Sprintf(
+			`<p>Click <a href="%s">here</a> to reset your password.</p><p>Or enter this code manually: <strong>%s</strong></p>`,
+			resetLink, token,
+		),
 	}
 
 	_, err := c.resend.Emails.Send(params)
