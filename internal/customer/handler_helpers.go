@@ -5,6 +5,7 @@ import (
 	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -95,4 +96,33 @@ func (h *Handler) setPrimaryAddress(ctx context.Context, customerID, addressID p
 	}
 
 	return tx.Commit(ctx)
+}
+
+// float64ToNumeric converts a float64 into a pgtype.Numeric. pgx only
+// accepts a string representation when scanning into Numeric, so we format
+// the float ourselves rather than relying on a direct Scan(float64).
+func float64ToNumeric(v float64) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
+	return n, err
+}
+
+func numericToFloat64(n pgtype.Numeric) float64 {
+	f, _ := n.Float64Value()
+	return f.Float64
+}
+
+func toAddressResponse(a db.CustomerAddress) AddressResponse {
+	return AddressResponse{
+		ID:         a.ID.String(),
+		Label:      a.Label,
+		Address:    a.Address,
+		Province:   a.Province,
+		City:       a.City,
+		District:   a.District,
+		PostalCode: a.PostalCode.String,
+		Latitude:   numericToFloat64(a.Latitude),
+		Longitude:  numericToFloat64(a.Longitude),
+		IsPrimary:  a.IsPrimary,
+	}
 }

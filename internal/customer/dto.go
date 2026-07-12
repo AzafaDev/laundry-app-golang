@@ -58,3 +58,29 @@ type RequestEmailChangeRequest struct {
 type VerifyEmailChangeRequest struct {
 	Token string `json:"token" binding:"required"`
 }
+
+type AddressRequest struct {
+	Label      string  `json:"label" binding:"required"`
+	Address    string  `json:"address" binding:"required"`
+	Province   string  `json:"province" binding:"required"`
+	City       string  `json:"city" binding:"required"`
+	District   string  `json:"district" binding:"required"`
+	PostalCode string  `json:"postal_code"`
+	Latitude   float64 `json:"latitude" binding:"required"`
+	Longitude  float64 `json:"longitude" binding:"required"`
+	IsPrimary  bool    `json:"is_primary"`
+}
+
+type AddressResponse struct {
+	ID         string  `json:"id"`
+	Label      string  `json:"label"`
+	Address    string  `json:"address"`
+	Province   string  `json:"province"`
+	City       string  `json:"city"`
+	District   string  `json:"district"`
+	PostalCode string  `json:"postal_code,omitempty"`
+	Latitude   float64 `json:"latitude"`
+	Longitude  float64 `json:"longitude"`
+	IsPrimary  bool    `json:"is_primary"`
+	Message    string  `json:"message,omitempty"`
+}
