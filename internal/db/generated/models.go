@@ -8,6 +8,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type City struct {
+	ID         int32  `json:"id"`
+	ProvinceID int32  `json:"province_id"`
+	Name       string `json:"name"`
+}
+
 type Customer struct {
 	ID           pgtype.UUID        `json:"id"`
 	FullName     string             `json:"full_name"`
@@ -37,6 +43,12 @@ type CustomerAddress struct {
 	IsPrimary  bool               `json:"is_primary"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type District struct {
+	ID     int32  `json:"id"`
+	CityID int32  `json:"city_id"`
+	Name   string `json:"name"`
 }
 
 type EmailChangeToken struct {
@@ -79,6 +91,11 @@ type PasswordResetToken struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	UsedAt     pgtype.Timestamptz `json:"used_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Province struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
 }
 
 type RefreshToken struct {

@@ -10,6 +10,7 @@ import (
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/server"
 	"laundry-app-with-golang/internal/storage"
+	"laundry-app-with-golang/internal/wilayah"
 	"log"
 )
 
@@ -35,8 +36,9 @@ func main() {
 	googleClient := oauthpkg.NewGoogleClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.AppBaseURL)
 
 	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient)
+	wilayahHandler := wilayah.NewHandler(queries)
 
-	router := server.NewRouter(customerHandler, cfg, queries)
+	router := server.NewRouter(customerHandler, wilayahHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

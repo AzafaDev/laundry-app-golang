@@ -19,6 +19,7 @@ type Config struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 	FrontendURL        string
+	OpenCageAPIKey     string
 }
 
 func Load() Config {
@@ -38,6 +39,7 @@ func Load() Config {
 		GoogleClientID:     mustGetEnv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret: mustGetEnv("GOOGLE_CLIENT_SECRET"),
 		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
+		OpenCageAPIKey:     mustGetEnv("OPENCAGE_API_KEY"),
 	}
 }
 

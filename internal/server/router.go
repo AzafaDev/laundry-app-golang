@@ -5,6 +5,7 @@ import (
 	"laundry-app-with-golang/internal/customer"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/middleware"
+	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, wilayahHandler *wilayah.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -53,6 +54,10 @@ func NewRouter(customerHandler *customer.Handler, cfg config.Config, queries *db
 	router.PATCH("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.UpdateAddress)
 	router.PATCH("/api/v1/customer/addresses/:id/primary", authMiddleware, customerHandler.SetPrimaryAddress)
 	router.DELETE("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.DeleteAddress)
+
+	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
+	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
+	router.GET("/api/v1/wilayah/cities/:id/districts", wilayahHandler.ListDistrictsByCity)
 
 	return router
 }

@@ -31,6 +31,9 @@ type Querier interface {
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]CustomerAddress, error)
+	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
+	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
+	ListProvinces(ctx context.Context) ([]Province, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
