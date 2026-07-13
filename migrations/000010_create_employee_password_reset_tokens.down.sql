@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS employee_password_reset_tokens;
