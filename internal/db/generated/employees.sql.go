@@ -11,6 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getEmployeeByEmail = `-- name: GetEmployeeByEmail :one
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at FROM employees
+WHERE email = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) GetEmployeeByEmail(ctx context.Context, email string) (Employee, error) {
+	row := q.db.QueryRow(ctx, getEmployeeByEmail, email)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getEmployeeByID = `-- name: GetEmployeeByID :one
 SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at FROM employees
 WHERE id = $1 AND deleted_at IS NULL
@@ -18,6 +42,70 @@ WHERE id = $1 AND deleted_at IS NULL
 
 func (q *Queries) GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee, error) {
 	row := q.db.QueryRow(ctx, getEmployeeByID, id)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const incrementEmployeeTokenVersion = `-- name: IncrementEmployeeTokenVersion :one
+UPDATE employees
+SET token_version = token_version + 1
+WHERE id = $1
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+`
+
+func (q *Queries) IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error) {
+	row := q.db.QueryRow(ctx, incrementEmployeeTokenVersion, id)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateEmployeePassword = `-- name: UpdateEmployeePassword :one
+UPDATE employees
+SET password_hash = $1, is_active = TRUE
+WHERE id = $2
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+`
+
+type UpdateEmployeePasswordParams struct {
+	PasswordHash pgtype.Text `json:"password_hash"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+// Unconditionally reactivates the employee (is_active = TRUE) alongside the
+// password change. Safe today because is_active=false only ever means
+// "never activated." If/when an admin-deactivate feature ships, that
+// feature MUST invalidate this employee's outstanding
+// employee_password_reset_tokens at deactivation time — otherwise a
+// deactivated employee can self-reactivate via ForgotPassword, which is
+// intentionally generic and does not check is_active.
+func (q *Queries) UpdateEmployeePassword(ctx context.Context, arg UpdateEmployeePasswordParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, updateEmployeePassword, arg.PasswordHash, arg.ID)
 	var i Employee
 	err := row.Scan(
 		&i.ID,

@@ -15,6 +15,8 @@ type Querier interface {
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
+	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
+	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
 	CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error)
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
@@ -25,19 +27,26 @@ type Querier interface {
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
+	GetEmployeeByEmail(ctx context.Context, email string) (Employee, error)
 	GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee, error)
+	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
+	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
+	IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
+	MarkEmployeePasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
+	RevokeEmployeeRefreshToken(ctx context.Context, id pgtype.UUID) error
+	RevokeEmployeeRefreshTokensByEmployeeID(ctx context.Context, employeeID pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
 	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error)
@@ -47,6 +56,14 @@ type Querier interface {
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)
 	UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (Customer, error)
+	// Unconditionally reactivates the employee (is_active = TRUE) alongside the
+	// password change. Safe today because is_active=false only ever means
+	// "never activated." If/when an admin-deactivate feature ships, that
+	// feature MUST invalidate this employee's outstanding
+	// employee_password_reset_tokens at deactivation time — otherwise a
+	// deactivated employee can self-reactivate via ForgotPassword, which is
+	// intentionally generic and does not check is_active.
+	UpdateEmployeePassword(ctx context.Context, arg UpdateEmployeePasswordParams) (Employee, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
 }
 

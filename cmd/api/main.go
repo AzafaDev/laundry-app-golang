@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/email"
+	"laundry-app-with-golang/internal/employee"
 	"laundry-app-with-golang/internal/geocode"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/server"
@@ -38,9 +39,10 @@ func main() {
 	geocodeClient := geocode.NewClient(cfg.OpenCageAPIKey)
 
 	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient, geocodeClient)
+	employeeHandler := employee.NewHandler(queries, pool, cfg, emailClient)
 	wilayahHandler := wilayah.NewHandler(queries)
 
-	router := server.NewRouter(customerHandler, wilayahHandler, cfg, queries)
+	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")
