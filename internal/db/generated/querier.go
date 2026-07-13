@@ -25,6 +25,7 @@ type Querier interface {
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
+	GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)

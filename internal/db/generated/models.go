@@ -84,6 +84,15 @@ type Employee struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type EmployeePasswordResetToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	EmployeeID pgtype.UUID        `json:"employee_id"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type PasswordResetToken struct {
 	ID         pgtype.UUID        `json:"id"`
 	CustomerID pgtype.UUID        `json:"customer_id"`
