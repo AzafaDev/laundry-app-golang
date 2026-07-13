@@ -8,18 +8,18 @@ import (
 )
 
 type Config struct {
-	Port               string
-	DatabaseURL        string
-	JWTAccessSecret    string
-	JWTRefreshSecret   string
-	GoEnv              string
-	ResendAPIKey       string
-	AppBaseURL         string
-	CloudinaryURL      string
-	GoogleClientID     string
-	GoogleClientSecret string
-	FrontendURL        string
-	OpenCageAPIKey     string
+	Port                    string
+	DatabaseURL             string
+	JWTAccessSecret         string
+	JWTEmployeeAccessSecret string
+	GoEnv                   string
+	ResendAPIKey            string
+	AppBaseURL              string
+	CloudinaryURL           string
+	GoogleClientID          string
+	GoogleClientSecret      string
+	FrontendURL             string
+	OpenCageAPIKey          string
 }
 
 func Load() Config {
@@ -28,18 +28,18 @@ func Load() Config {
 	}
 
 	return Config{
-		Port:               getEnv("PORT", "8080"),
-		DatabaseURL:        mustGetEnv("DATABASE_URL"),
-		JWTAccessSecret:    mustGetEnv("JWT_ACCESS_SECRET"),
-		JWTRefreshSecret:   mustGetEnv("JWT_REFRESH_SECRET"),
-		GoEnv:              getEnv("GO_ENV", "development"),
-		ResendAPIKey:       mustGetEnv("RESEND_API_KEY"),
-		AppBaseURL:         getEnv("APP_BASE_URL", "http://localhost:8080"),
-		CloudinaryURL:      mustGetEnv("CLOUDINARY_URL"),
-		GoogleClientID:     mustGetEnv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret: mustGetEnv("GOOGLE_CLIENT_SECRET"),
-		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
-		OpenCageAPIKey:     mustGetEnv("OPENCAGE_API_KEY"),
+		Port:                    getEnv("PORT", "8080"),
+		DatabaseURL:             mustGetEnv("DATABASE_URL"),
+		JWTAccessSecret:         mustGetEnv("JWT_ACCESS_SECRET"),
+		JWTEmployeeAccessSecret: mustGetEnv("JWT_EMPLOYEE_ACCESS_SECRET"),
+		GoEnv:                   getEnv("GO_ENV", "development"),
+		ResendAPIKey:            mustGetEnv("RESEND_API_KEY"),
+		AppBaseURL:              getEnv("APP_BASE_URL", "http://localhost:8080"),
+		CloudinaryURL:           mustGetEnv("CLOUDINARY_URL"),
+		GoogleClientID:          mustGetEnv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret:      mustGetEnv("GOOGLE_CLIENT_SECRET"),
+		FrontendURL:             getEnv("FRONTEND_URL", "http://localhost:3000"),
+		OpenCageAPIKey:          mustGetEnv("OPENCAGE_API_KEY"),
 	}
 }
 
