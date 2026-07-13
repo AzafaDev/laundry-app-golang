@@ -112,17 +112,34 @@ func numericToFloat64(n pgtype.Numeric) float64 {
 	return f.Float64
 }
 
-func toAddressResponse(a db.CustomerAddress) AddressResponse {
+// toAddressResponse builds an AddressResponse from scalar fields rather than
+// a single struct, because sqlc generates a distinct row type per query
+// (CreateAddressRow, UpdateAddressRow, ListAddressesRow, ...) even though
+// Create/List/Get/Update/SetPrimary all select the same JOIN'd shape. Passing
+// scalars lets every call site share this one conversion regardless of which
+// generated row type it's converting from.
+func toAddressResponse(
+	id pgtype.UUID,
+	label, address string,
+	provinceID, cityID, districtID int32,
+	provinceName, cityName, districtName string,
+	postalCode pgtype.Text,
+	latitude, longitude pgtype.Numeric,
+	isPrimary bool,
+) AddressResponse {
 	return AddressResponse{
-		ID:         a.ID.String(),
-		Label:      a.Label,
-		Address:    a.Address,
-		Province:   a.Province,
-		City:       a.City,
-		District:   a.District,
-		PostalCode: a.PostalCode.String,
-		Latitude:   numericToFloat64(a.Latitude),
-		Longitude:  numericToFloat64(a.Longitude),
-		IsPrimary:  a.IsPrimary,
+		ID:         id.String(),
+		Label:      label,
+		Address:    address,
+		ProvinceID: provinceID,
+		CityID:     cityID,
+		DistrictID: districtID,
+		Province:   provinceName,
+		City:       cityName,
+		District:   districtName,
+		PostalCode: postalCode.String,
+		Latitude:   numericToFloat64(latitude),
+		Longitude:  numericToFloat64(longitude),
+		IsPrimary:  isPrimary,
 	}
 }

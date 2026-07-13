@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/email"
+	"laundry-app-with-golang/internal/geocode"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/server"
 	"laundry-app-with-golang/internal/storage"
@@ -34,8 +35,9 @@ func main() {
 	}
 
 	googleClient := oauthpkg.NewGoogleClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.AppBaseURL)
+	geocodeClient := geocode.NewClient(cfg.OpenCageAPIKey)
 
-	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient)
+	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient, geocodeClient)
 	wilayahHandler := wilayah.NewHandler(queries)
 
 	router := server.NewRouter(customerHandler, wilayahHandler, cfg, queries)

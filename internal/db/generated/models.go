@@ -34,15 +34,15 @@ type CustomerAddress struct {
 	CustomerID pgtype.UUID        `json:"customer_id"`
 	Label      string             `json:"label"`
 	Address    string             `json:"address"`
-	Province   string             `json:"province"`
-	City       string             `json:"city"`
-	District   string             `json:"district"`
 	PostalCode pgtype.Text        `json:"postal_code"`
 	Latitude   pgtype.Numeric     `json:"latitude"`
 	Longitude  pgtype.Numeric     `json:"longitude"`
 	IsPrimary  bool               `json:"is_primary"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID int32              `json:"province_id"`
+	CityID     int32              `json:"city_id"`
+	DistrictID int32              `json:"district_id"`
 }
 
 type District struct {

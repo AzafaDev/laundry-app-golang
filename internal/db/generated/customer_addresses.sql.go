@@ -12,50 +12,81 @@ import (
 )
 
 const createAddress = `-- name: CreateAddress :one
-INSERT INTO customer_addresses (customer_id, label, address, province, city, district, postal_code, latitude, longitude)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at
+WITH inserted AS (
+    INSERT INTO customer_addresses (customer_id, label, address, province_id, city_id, district_id, postal_code, latitude, longitude, is_primary)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id
+)
+SELECT inserted.id, inserted.customer_id, inserted.label, inserted.address, inserted.postal_code, inserted.latitude, inserted.longitude, inserted.is_primary, inserted.created_at, inserted.updated_at, inserted.province_id, inserted.city_id, inserted.district_id, p.name AS province_name, c.name AS city_name, d.name AS district_name
+FROM inserted
+JOIN provinces p ON p.id = inserted.province_id
+JOIN cities c ON c.id = inserted.city_id
+JOIN districts d ON d.id = inserted.district_id
 `
 
 type CreateAddressParams struct {
 	CustomerID pgtype.UUID    `json:"customer_id"`
 	Label      string         `json:"label"`
 	Address    string         `json:"address"`
-	Province   string         `json:"province"`
-	City       string         `json:"city"`
-	District   string         `json:"district"`
+	ProvinceID int32          `json:"province_id"`
+	CityID     int32          `json:"city_id"`
+	DistrictID int32          `json:"district_id"`
 	PostalCode pgtype.Text    `json:"postal_code"`
 	Latitude   pgtype.Numeric `json:"latitude"`
 	Longitude  pgtype.Numeric `json:"longitude"`
+	IsPrimary  bool           `json:"is_primary"`
 }
 
-func (q *Queries) CreateAddress(ctx context.Context, arg CreateAddressParams) (CustomerAddress, error) {
+type CreateAddressRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	CustomerID   pgtype.UUID        `json:"customer_id"`
+	Label        string             `json:"label"`
+	Address      string             `json:"address"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Latitude     pgtype.Numeric     `json:"latitude"`
+	Longitude    pgtype.Numeric     `json:"longitude"`
+	IsPrimary    bool               `json:"is_primary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID   int32              `json:"province_id"`
+	CityID       int32              `json:"city_id"`
+	DistrictID   int32              `json:"district_id"`
+	ProvinceName string             `json:"province_name"`
+	CityName     string             `json:"city_name"`
+	DistrictName string             `json:"district_name"`
+}
+
+func (q *Queries) CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error) {
 	row := q.db.QueryRow(ctx, createAddress,
 		arg.CustomerID,
 		arg.Label,
 		arg.Address,
-		arg.Province,
-		arg.City,
-		arg.District,
+		arg.ProvinceID,
+		arg.CityID,
+		arg.DistrictID,
 		arg.PostalCode,
 		arg.Latitude,
 		arg.Longitude,
+		arg.IsPrimary,
 	)
-	var i CustomerAddress
+	var i CreateAddressRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
 		&i.Label,
 		&i.Address,
-		&i.Province,
-		&i.City,
-		&i.District,
 		&i.PostalCode,
 		&i.Latitude,
 		&i.Longitude,
 		&i.IsPrimary,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
+		&i.ProvinceName,
+		&i.CityName,
+		&i.DistrictName,
 	)
 	return i, err
 }
@@ -76,8 +107,12 @@ func (q *Queries) DeleteAddress(ctx context.Context, arg DeleteAddressParams) er
 }
 
 const getAddressByID = `-- name: GetAddressByID :one
-SELECT id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at FROM customer_addresses
-WHERE id = $1 AND customer_id = $2
+SELECT customer_addresses.id, customer_addresses.customer_id, customer_addresses.label, customer_addresses.address, customer_addresses.postal_code, customer_addresses.latitude, customer_addresses.longitude, customer_addresses.is_primary, customer_addresses.created_at, customer_addresses.updated_at, customer_addresses.province_id, customer_addresses.city_id, customer_addresses.district_id, p.name AS province_name, c.name AS city_name, d.name AS district_name
+FROM customer_addresses
+JOIN provinces p ON p.id = customer_addresses.province_id
+JOIN cities c ON c.id = customer_addresses.city_id
+JOIN districts d ON d.id = customer_addresses.district_id
+WHERE customer_addresses.id = $1 AND customer_addresses.customer_id = $2
 `
 
 type GetAddressByIDParams struct {
@@ -85,29 +120,51 @@ type GetAddressByIDParams struct {
 	CustomerID pgtype.UUID `json:"customer_id"`
 }
 
-func (q *Queries) GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (CustomerAddress, error) {
+type GetAddressByIDRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	CustomerID   pgtype.UUID        `json:"customer_id"`
+	Label        string             `json:"label"`
+	Address      string             `json:"address"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Latitude     pgtype.Numeric     `json:"latitude"`
+	Longitude    pgtype.Numeric     `json:"longitude"`
+	IsPrimary    bool               `json:"is_primary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID   int32              `json:"province_id"`
+	CityID       int32              `json:"city_id"`
+	DistrictID   int32              `json:"district_id"`
+	ProvinceName string             `json:"province_name"`
+	CityName     string             `json:"city_name"`
+	DistrictName string             `json:"district_name"`
+}
+
+func (q *Queries) GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAddressByID, arg.ID, arg.CustomerID)
-	var i CustomerAddress
+	var i GetAddressByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
 		&i.Label,
 		&i.Address,
-		&i.Province,
-		&i.City,
-		&i.District,
 		&i.PostalCode,
 		&i.Latitude,
 		&i.Longitude,
 		&i.IsPrimary,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
+		&i.ProvinceName,
+		&i.CityName,
+		&i.DistrictName,
 	)
 	return i, err
 }
 
 const getMostRecentAddress = `-- name: GetMostRecentAddress :one
-SELECT id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at FROM customer_addresses
+SELECT id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id FROM customer_addresses
 WHERE customer_id = $1
 ORDER BY created_at DESC
 LIMIT 1
@@ -121,48 +178,74 @@ func (q *Queries) GetMostRecentAddress(ctx context.Context, customerID pgtype.UU
 		&i.CustomerID,
 		&i.Label,
 		&i.Address,
-		&i.Province,
-		&i.City,
-		&i.District,
 		&i.PostalCode,
 		&i.Latitude,
 		&i.Longitude,
 		&i.IsPrimary,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
 	)
 	return i, err
 }
 
 const listAddresses = `-- name: ListAddresses :many
-SELECT id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at FROM customer_addresses
+SELECT customer_addresses.id, customer_addresses.customer_id, customer_addresses.label, customer_addresses.address, customer_addresses.postal_code, customer_addresses.latitude, customer_addresses.longitude, customer_addresses.is_primary, customer_addresses.created_at, customer_addresses.updated_at, customer_addresses.province_id, customer_addresses.city_id, customer_addresses.district_id, p.name AS province_name, c.name AS city_name, d.name AS district_name
+FROM customer_addresses
+JOIN provinces p ON p.id = customer_addresses.province_id
+JOIN cities c ON c.id = customer_addresses.city_id
+JOIN districts d ON d.id = customer_addresses.district_id
 WHERE customer_id = $1
 ORDER BY is_primary DESC, created_at DESC
 `
 
-func (q *Queries) ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]CustomerAddress, error) {
+type ListAddressesRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	CustomerID   pgtype.UUID        `json:"customer_id"`
+	Label        string             `json:"label"`
+	Address      string             `json:"address"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Latitude     pgtype.Numeric     `json:"latitude"`
+	Longitude    pgtype.Numeric     `json:"longitude"`
+	IsPrimary    bool               `json:"is_primary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID   int32              `json:"province_id"`
+	CityID       int32              `json:"city_id"`
+	DistrictID   int32              `json:"district_id"`
+	ProvinceName string             `json:"province_name"`
+	CityName     string             `json:"city_name"`
+	DistrictName string             `json:"district_name"`
+}
+
+func (q *Queries) ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error) {
 	rows, err := q.db.Query(ctx, listAddresses, customerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []CustomerAddress
+	var items []ListAddressesRow
 	for rows.Next() {
-		var i CustomerAddress
+		var i ListAddressesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
 			&i.Label,
 			&i.Address,
-			&i.Province,
-			&i.City,
-			&i.District,
 			&i.PostalCode,
 			&i.Latitude,
 			&i.Longitude,
 			&i.IsPrimary,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ProvinceID,
+			&i.CityID,
+			&i.DistrictID,
+			&i.ProvinceName,
+			&i.CityName,
+			&i.DistrictName,
 		); err != nil {
 			return nil, err
 		}
@@ -175,10 +258,17 @@ func (q *Queries) ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]
 }
 
 const setAddressPrimary = `-- name: SetAddressPrimary :one
-UPDATE customer_addresses
-SET is_primary = true, updated_at = now()
-WHERE id = $1 AND customer_id = $2
-RETURNING id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at
+WITH promoted AS (
+    UPDATE customer_addresses
+    SET is_primary = true, updated_at = now()
+    WHERE customer_addresses.id = $1 AND customer_addresses.customer_id = $2
+    RETURNING id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id
+)
+SELECT promoted.id, promoted.customer_id, promoted.label, promoted.address, promoted.postal_code, promoted.latitude, promoted.longitude, promoted.is_primary, promoted.created_at, promoted.updated_at, promoted.province_id, promoted.city_id, promoted.district_id, p.name AS province_name, c.name AS city_name, d.name AS district_name
+FROM promoted
+JOIN provinces p ON p.id = promoted.province_id
+JOIN cities c ON c.id = promoted.city_id
+JOIN districts d ON d.id = promoted.district_id
 `
 
 type SetAddressPrimaryParams struct {
@@ -186,23 +276,45 @@ type SetAddressPrimaryParams struct {
 	CustomerID pgtype.UUID `json:"customer_id"`
 }
 
-func (q *Queries) SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (CustomerAddress, error) {
+type SetAddressPrimaryRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	CustomerID   pgtype.UUID        `json:"customer_id"`
+	Label        string             `json:"label"`
+	Address      string             `json:"address"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Latitude     pgtype.Numeric     `json:"latitude"`
+	Longitude    pgtype.Numeric     `json:"longitude"`
+	IsPrimary    bool               `json:"is_primary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID   int32              `json:"province_id"`
+	CityID       int32              `json:"city_id"`
+	DistrictID   int32              `json:"district_id"`
+	ProvinceName string             `json:"province_name"`
+	CityName     string             `json:"city_name"`
+	DistrictName string             `json:"district_name"`
+}
+
+func (q *Queries) SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error) {
 	row := q.db.QueryRow(ctx, setAddressPrimary, arg.ID, arg.CustomerID)
-	var i CustomerAddress
+	var i SetAddressPrimaryRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
 		&i.Label,
 		&i.Address,
-		&i.Province,
-		&i.City,
-		&i.District,
 		&i.PostalCode,
 		&i.Latitude,
 		&i.Longitude,
 		&i.IsPrimary,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
+		&i.ProvinceName,
+		&i.CityName,
+		&i.DistrictName,
 	)
 	return i, err
 }
@@ -219,18 +331,25 @@ func (q *Queries) UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.U
 }
 
 const updateAddress = `-- name: UpdateAddress :one
-UPDATE customer_addresses
-SET label = $1, address = $2, province = $3, city = $4, district = $5, postal_code = $6, latitude = $7, longitude = $8, updated_at = now()
-WHERE id = $9 AND customer_id = $10
-RETURNING id, customer_id, label, address, province, city, district, postal_code, latitude, longitude, is_primary, created_at, updated_at
+WITH updated AS (
+    UPDATE customer_addresses
+    SET label = $1, address = $2, province_id = $3, city_id = $4, district_id = $5, postal_code = $6, latitude = $7, longitude = $8, updated_at = now()
+    WHERE customer_addresses.id = $9 AND customer_addresses.customer_id = $10
+    RETURNING id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id
+)
+SELECT updated.id, updated.customer_id, updated.label, updated.address, updated.postal_code, updated.latitude, updated.longitude, updated.is_primary, updated.created_at, updated.updated_at, updated.province_id, updated.city_id, updated.district_id, p.name AS province_name, c.name AS city_name, d.name AS district_name
+FROM updated
+JOIN provinces p ON p.id = updated.province_id
+JOIN cities c ON c.id = updated.city_id
+JOIN districts d ON d.id = updated.district_id
 `
 
 type UpdateAddressParams struct {
 	Label      string         `json:"label"`
 	Address    string         `json:"address"`
-	Province   string         `json:"province"`
-	City       string         `json:"city"`
-	District   string         `json:"district"`
+	ProvinceID int32          `json:"province_id"`
+	CityID     int32          `json:"city_id"`
+	DistrictID int32          `json:"district_id"`
 	PostalCode pgtype.Text    `json:"postal_code"`
 	Latitude   pgtype.Numeric `json:"latitude"`
 	Longitude  pgtype.Numeric `json:"longitude"`
@@ -238,34 +357,56 @@ type UpdateAddressParams struct {
 	CustomerID pgtype.UUID    `json:"customer_id"`
 }
 
-func (q *Queries) UpdateAddress(ctx context.Context, arg UpdateAddressParams) (CustomerAddress, error) {
+type UpdateAddressRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	CustomerID   pgtype.UUID        `json:"customer_id"`
+	Label        string             `json:"label"`
+	Address      string             `json:"address"`
+	PostalCode   pgtype.Text        `json:"postal_code"`
+	Latitude     pgtype.Numeric     `json:"latitude"`
+	Longitude    pgtype.Numeric     `json:"longitude"`
+	IsPrimary    bool               `json:"is_primary"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ProvinceID   int32              `json:"province_id"`
+	CityID       int32              `json:"city_id"`
+	DistrictID   int32              `json:"district_id"`
+	ProvinceName string             `json:"province_name"`
+	CityName     string             `json:"city_name"`
+	DistrictName string             `json:"district_name"`
+}
+
+func (q *Queries) UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error) {
 	row := q.db.QueryRow(ctx, updateAddress,
 		arg.Label,
 		arg.Address,
-		arg.Province,
-		arg.City,
-		arg.District,
+		arg.ProvinceID,
+		arg.CityID,
+		arg.DistrictID,
 		arg.PostalCode,
 		arg.Latitude,
 		arg.Longitude,
 		arg.ID,
 		arg.CustomerID,
 	)
-	var i CustomerAddress
+	var i UpdateAddressRow
 	err := row.Scan(
 		&i.ID,
 		&i.CustomerID,
 		&i.Label,
 		&i.Address,
-		&i.Province,
-		&i.City,
-		&i.District,
 		&i.PostalCode,
 		&i.Latitude,
 		&i.Longitude,
 		&i.IsPrimary,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
+		&i.ProvinceName,
+		&i.CityName,
+		&i.DistrictName,
 	)
 	return i, err
 }

@@ -4,6 +4,7 @@ import (
 	"laundry-app-with-golang/internal/config"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/email"
+	"laundry-app-with-golang/internal/geocode"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/storage"
 
@@ -17,9 +18,10 @@ type Handler struct {
 	emailClient   *email.Client
 	storageClient *storage.Client
 	googleClient  *oauthpkg.Client
+	geocodeClient *geocode.Client
 }
 
-func NewHandler(queries *db.Queries, pool *pgxpool.Pool, cfg config.Config, email *email.Client, storageClient *storage.Client, googleClient *oauthpkg.Client) *Handler {
+func NewHandler(queries *db.Queries, pool *pgxpool.Pool, cfg config.Config, email *email.Client, storageClient *storage.Client, googleClient *oauthpkg.Client, geocodeClient *geocode.Client) *Handler {
 	return &Handler{
 		Queries:       queries,
 		Pool:          pool,
@@ -27,5 +29,6 @@ func NewHandler(queries *db.Queries, pool *pgxpool.Pool, cfg config.Config, emai
 		emailClient:   email,
 		storageClient: storageClient,
 		googleClient:  googleClient,
+		geocodeClient: geocodeClient,
 	}
 }

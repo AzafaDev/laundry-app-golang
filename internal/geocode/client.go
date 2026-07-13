@@ -23,10 +23,10 @@ const baseURL = "https://api.opencagedata.com/geocode/v1/json"
 var ErrNoResults = errors.New("no geocoding results found")
 
 type Result struct {
-	Formatted  string
-	Latitude   float64
-	Longitude  float64
-	Confidence int
+	Formatted  string  `json:"formatted"`
+	Latitude   float64 `json:"latitude"`
+	Longitude  float64 `json:"longitude"`
+	Confidence int     `json:"confidence"`
 }
 
 type Client struct {

@@ -62,9 +62,9 @@ type VerifyEmailChangeRequest struct {
 type AddressRequest struct {
 	Label      string  `json:"label" binding:"required"`
 	Address    string  `json:"address" binding:"required"`
-	Province   string  `json:"province" binding:"required"`
-	City       string  `json:"city" binding:"required"`
-	District   string  `json:"district" binding:"required"`
+	ProvinceID int32   `json:"province_id" binding:"required"`
+	CityID     int32   `json:"city_id" binding:"required"`
+	DistrictID int32   `json:"district_id" binding:"required"`
 	PostalCode string  `json:"postal_code"`
 	Latitude   float64 `json:"latitude" binding:"required"`
 	Longitude  float64 `json:"longitude" binding:"required"`
@@ -75,6 +75,9 @@ type AddressResponse struct {
 	ID         string  `json:"id"`
 	Label      string  `json:"label"`
 	Address    string  `json:"address"`
+	ProvinceID int32   `json:"province_id"`
+	CityID     int32   `json:"city_id"`
+	DistrictID int32   `json:"district_id"`
 	Province   string  `json:"province"`
 	City       string  `json:"city"`
 	District   string  `json:"district"`

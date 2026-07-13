@@ -34,24 +34,41 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 		return
 	}
 
+	// If the customer has no addresses yet, this one becomes primary
+	// automatically regardless of req.IsPrimary — inserted directly as
+	// primary since there's nothing else to conflict with the partial
+	// unique index. Otherwise insert as non-primary and let the
+	// req.IsPrimary branch below do the transactional swap.
+	isFirstAddress := false
+	if _, err := h.Queries.GetMostRecentAddress(c.Request.Context(), customerID); errors.Is(err, pgx.ErrNoRows) {
+		isFirstAddress = true
+	}
+
 	created, err := h.Queries.CreateAddress(c.Request.Context(), db.CreateAddressParams{
 		CustomerID: customerID,
 		Label:      req.Label,
 		Address:    req.Address,
-		Province:   req.Province,
-		City:       req.City,
-		District:   req.District,
+		ProvinceID: req.ProvinceID,
+		CityID:     req.CityID,
+		DistrictID: req.DistrictID,
 		PostalCode: pgtype.Text{String: req.PostalCode, Valid: req.PostalCode != ""},
 		Latitude:   latitude,
 		Longitude:  longitude,
+		IsPrimary:  isFirstAddress,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	result := created
-	if req.IsPrimary {
+	resp := toAddressResponse(
+		created.ID, created.Label, created.Address,
+		created.ProvinceID, created.CityID, created.DistrictID,
+		created.ProvinceName, created.CityName, created.DistrictName,
+		created.PostalCode, created.Latitude, created.Longitude, created.IsPrimary,
+	)
+
+	if !isFirstAddress && req.IsPrimary {
 		if err := h.setPrimaryAddress(c.Request.Context(), customerID, created.ID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -65,10 +82,14 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		result = refetched
+		resp = toAddressResponse(
+			refetched.ID, refetched.Label, refetched.Address,
+			refetched.ProvinceID, refetched.CityID, refetched.DistrictID,
+			refetched.ProvinceName, refetched.CityName, refetched.DistrictName,
+			refetched.PostalCode, refetched.Latitude, refetched.Longitude, refetched.IsPrimary,
+		)
 	}
 
-	resp := toAddressResponse(result)
 	resp.Message = "address created successfully"
 	c.JSON(http.StatusCreated, resp)
 }
@@ -88,10 +109,49 @@ func (h *Handler) ListAddresses(c *gin.Context) {
 
 	responses := make([]AddressResponse, 0, len(addresses))
 	for _, a := range addresses {
-		responses = append(responses, toAddressResponse(a))
+		responses = append(responses, toAddressResponse(
+			a.ID, a.Label, a.Address,
+			a.ProvinceID, a.CityID, a.DistrictID,
+			a.ProvinceName, a.CityName, a.DistrictName,
+			a.PostalCode, a.Latitude, a.Longitude, a.IsPrimary,
+		))
 	}
 
 	c.JSON(http.StatusOK, responses)
+}
+
+func (h *Handler) GetAddressByID(c *gin.Context) {
+	var addressID pgtype.UUID
+	if err := addressID.Scan(c.Param("id")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid address id"})
+		return
+	}
+
+	customerID, _, err := h.currentCustomerID(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	address, err := h.Queries.GetAddressByID(c.Request.Context(), db.GetAddressByIDParams{
+		ID:         addressID,
+		CustomerID: customerID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, toAddressResponse(
+		address.ID, address.Label, address.Address,
+		address.ProvinceID, address.CityID, address.DistrictID,
+		address.ProvinceName, address.CityName, address.DistrictName,
+		address.PostalCode, address.Latitude, address.Longitude, address.IsPrimary,
+	))
 }
 
 func (h *Handler) UpdateAddress(c *gin.Context) {
@@ -127,9 +187,9 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 	updated, err := h.Queries.UpdateAddress(c.Request.Context(), db.UpdateAddressParams{
 		Label:      req.Label,
 		Address:    req.Address,
-		Province:   req.Province,
-		City:       req.City,
-		District:   req.District,
+		ProvinceID: req.ProvinceID,
+		CityID:     req.CityID,
+		DistrictID: req.DistrictID,
 		PostalCode: pgtype.Text{String: req.PostalCode, Valid: req.PostalCode != ""},
 		Latitude:   latitude,
 		Longitude:  longitude,
@@ -145,7 +205,13 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 		return
 	}
 
-	result := updated
+	resp := toAddressResponse(
+		updated.ID, updated.Label, updated.Address,
+		updated.ProvinceID, updated.CityID, updated.DistrictID,
+		updated.ProvinceName, updated.CityName, updated.DistrictName,
+		updated.PostalCode, updated.Latitude, updated.Longitude, updated.IsPrimary,
+	)
+
 	if req.IsPrimary {
 		if err := h.setPrimaryAddress(c.Request.Context(), customerID, addressID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -160,10 +226,14 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		result = refetched
+		resp = toAddressResponse(
+			refetched.ID, refetched.Label, refetched.Address,
+			refetched.ProvinceID, refetched.CityID, refetched.DistrictID,
+			refetched.ProvinceName, refetched.CityName, refetched.DistrictName,
+			refetched.PostalCode, refetched.Latitude, refetched.Longitude, refetched.IsPrimary,
+		)
 	}
 
-	resp := toAddressResponse(result)
 	resp.Message = "address updated successfully"
 	c.JSON(http.StatusOK, resp)
 }
@@ -206,7 +276,12 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toAddressResponse(refetched))
+	c.JSON(http.StatusOK, toAddressResponse(
+		refetched.ID, refetched.Label, refetched.Address,
+		refetched.ProvinceID, refetched.CityID, refetched.DistrictID,
+		refetched.ProvinceName, refetched.CityName, refetched.DistrictName,
+		refetched.PostalCode, refetched.Latitude, refetched.Longitude, refetched.IsPrimary,
+	))
 }
 
 func (h *Handler) DeleteAddress(c *gin.Context) {

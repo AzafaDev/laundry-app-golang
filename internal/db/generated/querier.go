@@ -11,7 +11,7 @@ import (
 )
 
 type Querier interface {
-	CreateAddress(ctx context.Context, arg CreateAddressParams) (CustomerAddress, error)
+	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
@@ -20,7 +20,7 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateSocialAccount(ctx context.Context, arg CreateSocialAccountParams) (SocialAccount, error)
 	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
-	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (CustomerAddress, error)
+	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
@@ -30,7 +30,7 @@ type Querier interface {
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
-	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]CustomerAddress, error)
+	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
@@ -39,9 +39,9 @@ type Querier interface {
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
-	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (CustomerAddress, error)
+	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error)
 	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
-	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (CustomerAddress, error)
+	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error)
 	UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error)
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)

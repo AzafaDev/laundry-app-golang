@@ -51,9 +51,13 @@ func NewRouter(customerHandler *customer.Handler, wilayahHandler *wilayah.Handle
 
 	router.GET("/api/v1/customer/addresses", authMiddleware, customerHandler.ListAddresses)
 	router.POST("/api/v1/customer/addresses", authMiddleware, customerHandler.CreateAddress)
+	router.GET("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.GetAddressByID)
 	router.PATCH("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.UpdateAddress)
 	router.PATCH("/api/v1/customer/addresses/:id/primary", authMiddleware, customerHandler.SetPrimaryAddress)
 	router.DELETE("/api/v1/customer/addresses/:id", authMiddleware, customerHandler.DeleteAddress)
+
+	router.GET("/api/v1/customer/geocode", authMiddleware, customerHandler.Geocode)
+	router.GET("/api/v1/customer/geocode/search", authMiddleware, customerHandler.SearchGeocode)
 
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
