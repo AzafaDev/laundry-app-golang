@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -44,6 +46,27 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 		passwordHash = pgtype.Text{String: hashed, Valid: true}
 	}
 
+	var outletID pgtype.UUID
+	if req.Role == "outlet_admin" {
+		if req.OutletID == nil || *req.OutletID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_id is required for outlet_admin"})
+			return
+		}
+	}
+	if req.OutletID != nil && *req.OutletID != "" {
+		if err := outletID.Scan(*req.OutletID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet_id"})
+			return
+		}
+		if _, err := h.Queries.GetOutletByID(c.Request.Context(), outletID); errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet not found"})
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	created, err := h.Queries.CreateEmployee(c.Request.Context(), db.CreateEmployeeParams{
 		FullName:     req.FullName,
 		Email:        req.Email,
@@ -51,6 +74,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 		PasswordHash: passwordHash,
 		Role:         req.Role,
 		IsActive:     !inviteMode,
+		OutletID:     outletID,
 	})
 
 	if isUniqueViolation(err) {
@@ -94,4 +118,65 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
+	var employeeID pgtype.UUID
+	if err := employeeID.Scan(c.Param("id")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		return
+	}
+
+	var req AssignOutletRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var outletID pgtype.UUID
+	if req.OutletID == nil {
+		if existing.Role == "outlet_admin" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_admin must have an outlet"})
+			return
+		}
+	} else {
+		if err := outletID.Scan(*req.OutletID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet_id"})
+			return
+		}
+		if _, err := h.Queries.GetOutletByID(c.Request.Context(), outletID); errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet not found"})
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	updated, err := h.Queries.UpdateEmployeeOutlet(c.Request.Context(), db.UpdateEmployeeOutletParams{
+		OutletID: outletID,
+		ID:       employeeID,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, EmployeeResponse{
+		ID:       updated.ID.String(),
+		FullName: updated.FullName,
+		Email:    updated.Email,
+		Role:     updated.Role,
+		Message:  "employee outlet updated successfully",
+	})
 }

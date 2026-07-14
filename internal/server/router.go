@@ -6,6 +6,7 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/employee"
 	"laundry-app-with-golang/internal/middleware"
+	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -71,6 +72,13 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, employeeHandler.ChangePassword)
 
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
+	router.PATCH("/api/v1/employee/admin/employees/:id/outlet", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.AssignEmployeeOutlet)
+
+	router.GET("/api/v1/employee/admin/outlets", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.ListOutlets)
+	router.GET("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.GetOutletByID)
+	router.POST("/api/v1/employee/admin/outlets", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.CreateOutlet)
+	router.PATCH("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.UpdateOutlet)
+	router.DELETE("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.SoftDeleteOutlet)
 
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)

@@ -1,6 +1,12 @@
 -- name: CreateEmployee :one
-INSERT INTO employees (full_name, email, phone, password_hash, role, is_active)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO employees (full_name, email, phone, password_hash, role, is_active, outlet_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: UpdateEmployeeOutlet :one
+UPDATE employees
+SET outlet_id = $1
+WHERE id = $2
 RETURNING *;
 
 -- name: GetEmployeeByID :one

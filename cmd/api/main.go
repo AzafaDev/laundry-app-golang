@@ -10,6 +10,7 @@ import (
 	"laundry-app-with-golang/internal/employee"
 	"laundry-app-with-golang/internal/geocode"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
+	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/server"
 	"laundry-app-with-golang/internal/storage"
 	"laundry-app-with-golang/internal/wilayah"
@@ -41,8 +42,9 @@ func main() {
 	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient, geocodeClient)
 	employeeHandler := employee.NewHandler(queries, pool, cfg, emailClient)
 	wilayahHandler := wilayah.NewHandler(queries)
+	outletHandler := outlet.NewHandler(queries)
 
-	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, cfg, queries)
+	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

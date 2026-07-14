@@ -12,9 +12,9 @@ import (
 )
 
 const createEmployee = `-- name: CreateEmployee :one
-INSERT INTO employees (full_name, email, phone, password_hash, role, is_active)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+INSERT INTO employees (full_name, email, phone, password_hash, role, is_active, outlet_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id
 `
 
 type CreateEmployeeParams struct {
@@ -24,6 +24,7 @@ type CreateEmployeeParams struct {
 	PasswordHash pgtype.Text `json:"password_hash"`
 	Role         string      `json:"role"`
 	IsActive     bool        `json:"is_active"`
+	OutletID     pgtype.UUID `json:"outlet_id"`
 }
 
 func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error) {
@@ -34,6 +35,7 @@ func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) 
 		arg.PasswordHash,
 		arg.Role,
 		arg.IsActive,
+		arg.OutletID,
 	)
 	var i Employee
 	err := row.Scan(
@@ -48,12 +50,13 @@ func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) 
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OutletID,
 	)
 	return i, err
 }
 
 const getEmployeeByEmail = `-- name: GetEmployeeByEmail :one
-SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at FROM employees
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees
 WHERE email = $1 AND deleted_at IS NULL
 `
 
@@ -72,12 +75,13 @@ func (q *Queries) GetEmployeeByEmail(ctx context.Context, email string) (Employe
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OutletID,
 	)
 	return i, err
 }
 
 const getEmployeeByID = `-- name: GetEmployeeByID :one
-SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at FROM employees
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -96,6 +100,7 @@ func (q *Queries) GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OutletID,
 	)
 	return i, err
 }
@@ -104,7 +109,7 @@ const incrementEmployeeTokenVersion = `-- name: IncrementEmployeeTokenVersion :o
 UPDATE employees
 SET token_version = token_version + 1
 WHERE id = $1
-RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id
 `
 
 func (q *Queries) IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error) {
@@ -122,6 +127,39 @@ func (q *Queries) IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.U
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OutletID,
+	)
+	return i, err
+}
+
+const updateEmployeeOutlet = `-- name: UpdateEmployeeOutlet :one
+UPDATE employees
+SET outlet_id = $1
+WHERE id = $2
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id
+`
+
+type UpdateEmployeeOutletParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateEmployeeOutlet(ctx context.Context, arg UpdateEmployeeOutletParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, updateEmployeeOutlet, arg.OutletID, arg.ID)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OutletID,
 	)
 	return i, err
 }
@@ -130,7 +168,7 @@ const updateEmployeePassword = `-- name: UpdateEmployeePassword :one
 UPDATE employees
 SET password_hash = $1, is_active = TRUE
 WHERE id = $2
-RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id
 `
 
 type UpdateEmployeePasswordParams struct {
@@ -160,6 +198,7 @@ func (q *Queries) UpdateEmployeePassword(ctx context.Context, arg UpdateEmployee
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OutletID,
 	)
 	return i, err
 }

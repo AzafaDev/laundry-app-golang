@@ -15,11 +15,21 @@ type EmployeeResponse struct {
 }
 
 type CreateEmployeeRequest struct {
-	FullName string `json:"full_name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
-	Role     string `json:"role" binding:"required,oneof=super_admin outlet_admin washing_worker ironing_worker packing_worker driver"`
+	FullName string  `json:"full_name" binding:"required"`
+	Email    string  `json:"email" binding:"required,email"`
+	Phone    string  `json:"phone"`
+	Password string  `json:"password"`
+	Role     string  `json:"role" binding:"required,oneof=super_admin outlet_admin washing_worker ironing_worker packing_worker driver"`
+	OutletID *string `json:"outlet_id,omitempty"`
+}
+
+// AssignOutletRequest's OutletID is a pointer so JSON null decodes to a nil
+// pointer, which the handler treats as "unassign." encoding/json cannot
+// distinguish an omitted field from an explicit null (both decode to nil),
+// but this endpoint has no "no change" state to represent — every call is
+// either assign (non-null id) or unassign (nil), so that's not a gap here.
+type AssignOutletRequest struct {
+	OutletID *string `json:"outlet_id"`
 }
 
 type ForgotPasswordRequest struct {

@@ -1,0 +1,32 @@
+package outlet
+
+import (
+	"strconv"
+
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+// float64ToNumeric converts a float64 into a pgtype.Numeric. pgx only
+// accepts a string representation when scanning into Numeric, so we format
+// the float ourselves rather than relying on a direct Scan(float64).
+func float64ToNumeric(v float64) (pgtype.Numeric, error) {
+	var n pgtype.Numeric
+	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
+	return n, err
+}
+
+func numericToFloat64(n pgtype.Numeric) float64 {
+	f, _ := n.Float64Value()
+	return f.Float64
+}
+
+func toOutletResponse(id pgtype.UUID, name, address string, latitude, longitude pgtype.Numeric, isActive bool) OutletResponse {
+	return OutletResponse{
+		ID:        id.String(),
+		Name:      name,
+		Address:   address,
+		Latitude:  numericToFloat64(latitude),
+		Longitude: numericToFloat64(longitude),
+		IsActive:  isActive,
+	}
+}

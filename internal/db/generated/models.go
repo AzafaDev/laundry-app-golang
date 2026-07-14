@@ -82,6 +82,7 @@ type Employee struct {
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	OutletID     pgtype.UUID        `json:"outlet_id"`
 }
 
 type EmployeePasswordResetToken struct {
@@ -100,6 +101,18 @@ type EmployeeRefreshToken struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Outlet struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Address   string             `json:"address"`
+	Latitude  pgtype.Numeric     `json:"latitude"`
+	Longitude pgtype.Numeric     `json:"longitude"`
+	IsActive  bool               `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type PasswordResetToken struct {
