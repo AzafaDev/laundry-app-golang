@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
+	CountOutlets(ctx context.Context) (int64, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
@@ -31,6 +33,7 @@ type Querier interface {
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
 	GetEmployeeByEmail(ctx context.Context, email string) (Employee, error)
 	GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee, error)
+	GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Employee, error)
 	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
 	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
@@ -38,12 +41,14 @@ type Querier interface {
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
+	HardDeleteEmployee(ctx context.Context, id pgtype.UUID) error
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
 	IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
-	ListOutlets(ctx context.Context) ([]Outlet, error)
+	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]Employee, error)
+	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
@@ -54,6 +59,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
 	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error)
+	SoftDeleteEmployee(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteOutlet(ctx context.Context, id pgtype.UUID) error
 	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
 	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error)
@@ -61,6 +67,7 @@ type Querier interface {
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)
 	UpdateCustomerProfile(ctx context.Context, arg UpdateCustomerProfileParams) (Customer, error)
+	UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error)
 	UpdateEmployeeOutlet(ctx context.Context, arg UpdateEmployeeOutletParams) (Employee, error)
 	// Unconditionally reactivates the employee (is_active = TRUE) alongside the
 	// password change. Safe today because is_active=false only ever means

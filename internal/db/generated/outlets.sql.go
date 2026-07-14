@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countOutlets = `-- name: CountOutlets :one
+SELECT count(*) FROM outlets WHERE deleted_at IS NULL
+`
+
+func (q *Queries) CountOutlets(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countOutlets)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOutlet = `-- name: CreateOutlet :one
 INSERT INTO outlets (name, address, latitude, longitude, is_active)
 VALUES ($1, $2, $3, $4, $5)
@@ -74,10 +85,16 @@ const listOutlets = `-- name: ListOutlets :many
 SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at FROM outlets
 WHERE deleted_at IS NULL
 ORDER BY name
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) ListOutlets(ctx context.Context) ([]Outlet, error) {
-	rows, err := q.db.Query(ctx, listOutlets)
+type ListOutletsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error) {
+	rows, err := q.db.Query(ctx, listOutlets, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

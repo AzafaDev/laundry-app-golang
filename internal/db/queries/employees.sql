@@ -9,6 +9,35 @@ SET outlet_id = $1
 WHERE id = $2
 RETURNING *;
 
+-- name: ListEmployees :many
+SELECT * FROM employees
+WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
+  AND (sqlc.narg(role)::text IS NULL OR role = sqlc.narg(role))
+  AND (sqlc.narg(search)::text IS NULL OR full_name ILIKE '%' || sqlc.narg(search) || '%' OR email ILIKE '%' || sqlc.narg(search) || '%')
+ORDER BY created_at DESC
+LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
+
+-- name: CountEmployees :one
+SELECT count(*) FROM employees
+WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
+  AND (sqlc.narg(role)::text IS NULL OR role = sqlc.narg(role))
+  AND (sqlc.narg(search)::text IS NULL OR full_name ILIKE '%' || sqlc.narg(search) || '%' OR email ILIKE '%' || sqlc.narg(search) || '%');
+
+-- name: GetEmployeeByIDAny :one
+SELECT * FROM employees WHERE id = $1;
+
+-- name: UpdateEmployee :one
+UPDATE employees
+SET full_name = $1, phone = $2, role = $3, updated_at = now()
+WHERE id = $4 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: SoftDeleteEmployee :exec
+UPDATE employees SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: HardDeleteEmployee :exec
+DELETE FROM employees WHERE id = $1;
+
 -- name: GetEmployeeByID :one
 SELECT * FROM employees
 WHERE id = $1 AND deleted_at IS NULL;

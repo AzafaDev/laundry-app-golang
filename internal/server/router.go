@@ -71,8 +71,13 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/profile", employeeAuthMiddleware, employeeHandler.Profile)
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, employeeHandler.ChangePassword)
 
+	router.GET("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.ListEmployees)
+	router.GET("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.GetEmployeeByIDAdmin)
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
+	router.PATCH("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.UpdateEmployee)
 	router.PATCH("/api/v1/employee/admin/employees/:id/outlet", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.AssignEmployeeOutlet)
+	router.DELETE("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.SoftDeleteEmployee)
+	router.DELETE("/api/v1/employee/admin/employees/:id/permanent", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.HardDeleteEmployee)
 
 	router.GET("/api/v1/employee/admin/outlets", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.ListOutlets)
 	router.GET("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.GetOutletByID)

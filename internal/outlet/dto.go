@@ -17,3 +17,8 @@ type OutletResponse struct {
 	IsActive  bool    `json:"is_active"`
 	Message   string  `json:"message,omitempty"`
 }
+
+type OutletListResponse struct {
+	Data       []OutletResponse `json:"data"`
+	TotalCount int64            `json:"total_count"`
+}

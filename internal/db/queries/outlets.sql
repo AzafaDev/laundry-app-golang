@@ -10,7 +10,11 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListOutlets :many
 SELECT * FROM outlets
 WHERE deleted_at IS NULL
-ORDER BY name;
+ORDER BY name
+LIMIT $1 OFFSET $2;
+
+-- name: CountOutlets :one
+SELECT count(*) FROM outlets WHERE deleted_at IS NULL;
 
 -- name: UpdateOutlet :one
 UPDATE outlets

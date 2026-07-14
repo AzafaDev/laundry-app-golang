@@ -11,6 +11,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countEmployees = `-- name: CountEmployees :one
+SELECT count(*) FROM employees
+WHERE (deleted_at IS NULL OR $1::boolean)
+  AND ($2::text IS NULL OR role = $2)
+  AND ($3::text IS NULL OR full_name ILIKE '%' || $3 || '%' OR email ILIKE '%' || $3 || '%')
+`
+
+type CountEmployeesParams struct {
+	IncludeDeleted bool        `json:"include_deleted"`
+	Role           pgtype.Text `json:"role"`
+	Search         pgtype.Text `json:"search"`
+}
+
+func (q *Queries) CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEmployees, arg.IncludeDeleted, arg.Role, arg.Search)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createEmployee = `-- name: CreateEmployee :one
 INSERT INTO employees (full_name, email, phone, password_hash, role, is_active, outlet_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -105,6 +125,39 @@ func (q *Queries) GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee
 	return i, err
 }
 
+const getEmployeeByIDAny = `-- name: GetEmployeeByIDAny :one
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees WHERE id = $1
+`
+
+func (q *Queries) GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Employee, error) {
+	row := q.db.QueryRow(ctx, getEmployeeByIDAny, id)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OutletID,
+	)
+	return i, err
+}
+
+const hardDeleteEmployee = `-- name: HardDeleteEmployee :exec
+DELETE FROM employees WHERE id = $1
+`
+
+func (q *Queries) HardDeleteEmployee(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, hardDeleteEmployee, id)
+	return err
+}
+
 const incrementEmployeeTokenVersion = `-- name: IncrementEmployeeTokenVersion :one
 UPDATE employees
 SET token_version = token_version + 1
@@ -114,6 +167,110 @@ RETURNING id, full_name, email, phone, password_hash, role, is_active, token_ver
 
 func (q *Queries) IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error) {
 	row := q.db.QueryRow(ctx, incrementEmployeeTokenVersion, id)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OutletID,
+	)
+	return i, err
+}
+
+const listEmployees = `-- name: ListEmployees :many
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees
+WHERE (deleted_at IS NULL OR $1::boolean)
+  AND ($2::text IS NULL OR role = $2)
+  AND ($3::text IS NULL OR full_name ILIKE '%' || $3 || '%' OR email ILIKE '%' || $3 || '%')
+ORDER BY created_at DESC
+LIMIT $5 OFFSET $4
+`
+
+type ListEmployeesParams struct {
+	IncludeDeleted bool        `json:"include_deleted"`
+	Role           pgtype.Text `json:"role"`
+	Search         pgtype.Text `json:"search"`
+	RowOffset      int32       `json:"row_offset"`
+	RowLimit       int32       `json:"row_limit"`
+}
+
+func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]Employee, error) {
+	rows, err := q.db.Query(ctx, listEmployees,
+		arg.IncludeDeleted,
+		arg.Role,
+		arg.Search,
+		arg.RowOffset,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Employee
+	for rows.Next() {
+		var i Employee
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Email,
+			&i.Phone,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.TokenVersion,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OutletID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const softDeleteEmployee = `-- name: SoftDeleteEmployee :exec
+UPDATE employees SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) SoftDeleteEmployee(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteEmployee, id)
+	return err
+}
+
+const updateEmployee = `-- name: UpdateEmployee :one
+UPDATE employees
+SET full_name = $1, phone = $2, role = $3, updated_at = now()
+WHERE id = $4 AND deleted_at IS NULL
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id
+`
+
+type UpdateEmployeeParams struct {
+	FullName string      `json:"full_name"`
+	Phone    pgtype.Text `json:"phone"`
+	Role     string      `json:"role"`
+	ID       pgtype.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, updateEmployee,
+		arg.FullName,
+		arg.Phone,
+		arg.Role,
+		arg.ID,
+	)
 	var i Employee
 	err := row.Scan(
 		&i.ID,

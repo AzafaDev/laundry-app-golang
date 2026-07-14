@@ -11,18 +11,29 @@ import (
 )
 
 func (h *Handler) ListOutlets(c *gin.Context) {
-	outlets, err := h.Queries.ListOutlets(c.Request.Context())
+	limit, offset := parsePagination(c)
+
+	outlets, err := h.Queries.ListOutlets(c.Request.Context(), db.ListOutletsParams{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	responses := make([]OutletResponse, 0, len(outlets))
-	for _, o := range outlets {
-		responses = append(responses, toOutletResponse(o.ID, o.Name, o.Address, o.Latitude, o.Longitude, o.IsActive))
+	totalCount, err := h.Queries.CountOutlets(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
-	c.JSON(http.StatusOK, responses)
+	data := make([]OutletResponse, 0, len(outlets))
+	for _, o := range outlets {
+		data = append(data, toOutletResponse(o.ID, o.Name, o.Address, o.Latitude, o.Longitude, o.IsActive))
+	}
+
+	c.JSON(http.StatusOK, OutletListResponse{Data: data, TotalCount: totalCount})
 }
 
 func (h *Handler) GetOutletByID(c *gin.Context) {

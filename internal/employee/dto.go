@@ -32,6 +32,17 @@ type AssignOutletRequest struct {
 	OutletID *string `json:"outlet_id"`
 }
 
+type EmployeeListResponse struct {
+	Data       []EmployeeResponse `json:"data"`
+	TotalCount int64              `json:"total_count"`
+}
+
+type UpdateEmployeeRequest struct {
+	FullName string `json:"full_name" binding:"required"`
+	Phone    string `json:"phone"`
+	Role     string `json:"role" binding:"required,oneof=super_admin outlet_admin washing_worker ironing_worker packing_worker driver"`
+}
+
 type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
