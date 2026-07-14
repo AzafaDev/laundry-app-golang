@@ -5,6 +5,7 @@ import (
 	"errors"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -19,6 +20,17 @@ import (
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
+}
+
+func (h *Handler) cookieSecure() bool {
+	return h.Config.GoEnv == "production"
+}
+
+func (h *Handler) cookieSameSite() http.SameSite {
+	if h.Config.GoEnv == "production" {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
 }
 
 // currentCustomerID reads the "customer_id" set by the auth middleware and

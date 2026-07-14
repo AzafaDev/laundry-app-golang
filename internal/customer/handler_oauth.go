@@ -9,17 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *Handler) cookieSecure() bool {
-	return h.Config.GoEnv == "production"
-}
-
-func (h *Handler) cookieSameSite() http.SameSite {
-	if h.Config.GoEnv == "production" {
-		return http.SameSiteNoneMode
-	}
-	return http.SameSiteLaxMode
-}
-
 func (h *Handler) GoogleLogin(c *gin.Context) {
 	state, err := auth.GenerateRandomToken()
 	if err != nil {
