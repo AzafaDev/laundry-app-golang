@@ -10,6 +10,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func (h *Handler) Profile(c *gin.Context) {
+	employeeUUID, err := h.currentEmployeeID(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	existingEmployee, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, EmployeeResponse{
+		ID:       existingEmployee.ID.String(),
+		FullName: existingEmployee.FullName,
+		Email:    existingEmployee.Email,
+		Role:     existingEmployee.Role,
+	})
+}
+
 func (h *Handler) ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
 

@@ -67,6 +67,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/auth/forgot-password", employeeHandler.ForgotPassword)
 	router.POST("/api/v1/employee/auth/reset-password", employeeHandler.ResetPassword)
 
+	router.GET("/api/v1/employee/profile", employeeAuthMiddleware, employeeHandler.Profile)
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, employeeHandler.ChangePassword)
 
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
