@@ -23,12 +23,7 @@ func (h *Handler) Profile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, EmployeeResponse{
-		ID:       existingEmployee.ID.String(),
-		FullName: existingEmployee.FullName,
-		Email:    existingEmployee.Email,
-		Role:     existingEmployee.Role,
-	})
+	c.JSON(http.StatusOK, toEmployeeResponse(existingEmployee))
 }
 
 func (h *Handler) ChangePassword(c *gin.Context) {
@@ -93,13 +88,8 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	resp := EmployeeResponse{
-		ID:       updatedEmployee.ID.String(),
-		FullName: updatedEmployee.FullName,
-		Email:    updatedEmployee.Email,
-		Role:     updatedEmployee.Role,
-		Message:  "changed password successfully!",
-	}
+	resp := toEmployeeResponse(bumpedEmployee)
+	resp.Message = "changed password successfully!"
 
 	c.JSON(http.StatusOK, resp)
 }

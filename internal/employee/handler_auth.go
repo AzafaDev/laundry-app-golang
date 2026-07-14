@@ -45,14 +45,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	resp := EmployeeResponse{
-		ID:       employee.ID.String(),
-		FullName: employee.FullName,
-		Email:    employee.Email,
-		Role:     employee.Role,
-	}
-
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, toEmployeeResponse(employee))
 }
 
 func (h *Handler) Refresh(c *gin.Context) {
@@ -203,12 +196,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	resp := EmployeeResponse{
-		ID:       updatedEmployee.ID.String(),
-		FullName: updatedEmployee.FullName,
-		Email:    updatedEmployee.Email,
-		Role:     updatedEmployee.Role,
-		Message:  "reset password successfully!",
-	}
+	resp := toEmployeeResponse(bumpedEmployee)
+	resp.Message = "reset password successfully!"
 	c.JSON(http.StatusOK, resp)
 }

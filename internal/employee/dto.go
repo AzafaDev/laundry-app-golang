@@ -6,12 +6,16 @@ type LoginRequest struct {
 }
 
 type EmployeeResponse struct {
-	ID         string `json:"id"`
-	FullName   string `json:"full_name"`
-	Email      string `json:"email"`
-	Role       string `json:"role"`
-	InviteSent bool   `json:"invite_sent,omitempty"`
-	Message    string `json:"message,omitempty"`
+	ID         string  `json:"id"`
+	FullName   string  `json:"full_name"`
+	Email      string  `json:"email"`
+	Phone      *string `json:"phone"`
+	Role       string  `json:"role"`
+	OutletID   *string `json:"outlet_id"`
+	IsActive   bool    `json:"is_active"`
+	DeletedAt  *string `json:"deleted_at"`
+	InviteSent bool    `json:"invite_sent,omitempty"`
+	Message    string  `json:"message,omitempty"`
 }
 
 type CreateEmployeeRequest struct {

@@ -108,14 +108,9 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 		}
 	}
 
-	resp := EmployeeResponse{
-		ID:         created.ID.String(),
-		FullName:   created.FullName,
-		Email:      created.Email,
-		Role:       created.Role,
-		InviteSent: inviteSent,
-		Message:    "employee created successfully!",
-	}
+	resp := toEmployeeResponse(created)
+	resp.InviteSent = inviteSent
+	resp.Message = "employee created successfully!"
 
 	c.JSON(http.StatusCreated, resp)
 }
@@ -172,13 +167,9 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, EmployeeResponse{
-		ID:       updated.ID.String(),
-		FullName: updated.FullName,
-		Email:    updated.Email,
-		Role:     updated.Role,
-		Message:  "employee outlet updated successfully",
-	})
+	resp := toEmployeeResponse(updated)
+	resp.Message = "employee outlet updated successfully"
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) ListEmployees(c *gin.Context) {
@@ -219,12 +210,7 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 
 	data := make([]EmployeeResponse, 0, len(employees))
 	for _, e := range employees {
-		data = append(data, EmployeeResponse{
-			ID:       e.ID.String(),
-			FullName: e.FullName,
-			Email:    e.Email,
-			Role:     e.Role,
-		})
+		data = append(data, toEmployeeResponse(e))
 	}
 
 	c.JSON(http.StatusOK, EmployeeListResponse{Data: data, TotalCount: totalCount})
@@ -247,12 +233,7 @@ func (h *Handler) GetEmployeeByIDAdmin(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, EmployeeResponse{
-		ID:       existing.ID.String(),
-		FullName: existing.FullName,
-		Email:    existing.Email,
-		Role:     existing.Role,
-	})
+	c.JSON(http.StatusOK, toEmployeeResponse(existing))
 }
 
 func (h *Handler) UpdateEmployee(c *gin.Context) {
@@ -305,13 +286,9 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, EmployeeResponse{
-		ID:       updated.ID.String(),
-		FullName: updated.FullName,
-		Email:    updated.Email,
-		Role:     updated.Role,
-		Message:  "employee updated successfully",
-	})
+	resp := toEmployeeResponse(updated)
+	resp.Message = "employee updated successfully"
+	c.JSON(http.StatusOK, resp)
 }
 
 // selfDeleteGuard reports whether targetID (parsed from a URL param) refers

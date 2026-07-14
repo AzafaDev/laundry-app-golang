@@ -39,6 +39,33 @@ func parsePagination(c *gin.Context) (limit, offset int32) {
 	return limit, offset
 }
 
+// toEmployeeResponse maps a db.Employee row into the response shape shared
+// across every employee endpoint. Callers that need Message/InviteSent set
+// them on the returned value afterward.
+func toEmployeeResponse(e db.Employee) EmployeeResponse {
+	resp := EmployeeResponse{
+		ID:       e.ID.String(),
+		FullName: e.FullName,
+		Email:    e.Email,
+		Role:     e.Role,
+		IsActive: e.IsActive,
+	}
+
+	if e.Phone.Valid {
+		resp.Phone = &e.Phone.String
+	}
+	if e.OutletID.Valid {
+		id := e.OutletID.String()
+		resp.OutletID = &id
+	}
+	if e.DeletedAt.Valid {
+		formatted := e.DeletedAt.Time.Format(time.RFC3339)
+		resp.DeletedAt = &formatted
+	}
+
+	return resp
+}
+
 // isUniqueViolation reports whether err is a Postgres unique-constraint
 // violation (e.g. duplicate email).
 func isUniqueViolation(err error) bool {
