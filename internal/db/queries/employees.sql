@@ -1,3 +1,8 @@
+-- name: CreateEmployee :one
+INSERT INTO employees (full_name, email, phone, password_hash, role, is_active)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
 -- name: GetEmployeeByID :one
 SELECT * FROM employees
 WHERE id = $1 AND deleted_at IS NULL;

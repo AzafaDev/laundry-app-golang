@@ -8,8 +8,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint
+// violation (e.g. duplicate email).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
+}
 
 func (h *Handler) cookieSecure() bool {
 	return h.Config.GoEnv == "production"

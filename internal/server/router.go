@@ -69,6 +69,8 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, employeeHandler.ChangePassword)
 
+	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
+
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
 	router.GET("/api/v1/wilayah/cities/:id/districts", wilayahHandler.ListDistrictsByCity)

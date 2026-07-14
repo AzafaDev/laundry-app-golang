@@ -15,6 +15,7 @@ type Querier interface {
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
+	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
 	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
 	CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error)

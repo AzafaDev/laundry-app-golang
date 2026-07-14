@@ -11,6 +11,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createEmployee = `-- name: CreateEmployee :one
+INSERT INTO employees (full_name, email, phone, password_hash, role, is_active)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at
+`
+
+type CreateEmployeeParams struct {
+	FullName     string      `json:"full_name"`
+	Email        string      `json:"email"`
+	Phone        pgtype.Text `json:"phone"`
+	PasswordHash pgtype.Text `json:"password_hash"`
+	Role         string      `json:"role"`
+	IsActive     bool        `json:"is_active"`
+}
+
+func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, createEmployee,
+		arg.FullName,
+		arg.Email,
+		arg.Phone,
+		arg.PasswordHash,
+		arg.Role,
+		arg.IsActive,
+	)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getEmployeeByEmail = `-- name: GetEmployeeByEmail :one
 SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at FROM employees
 WHERE email = $1 AND deleted_at IS NULL

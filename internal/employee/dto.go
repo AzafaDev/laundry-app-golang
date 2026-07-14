@@ -6,11 +6,20 @@ type LoginRequest struct {
 }
 
 type EmployeeResponse struct {
-	ID       string `json:"id"`
-	FullName string `json:"full_name"`
-	Email    string `json:"email"`
-	Role     string `json:"role"`
-	Message  string `json:"message,omitempty"`
+	ID         string `json:"id"`
+	FullName   string `json:"full_name"`
+	Email      string `json:"email"`
+	Role       string `json:"role"`
+	InviteSent bool   `json:"invite_sent,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
+type CreateEmployeeRequest struct {
+	FullName string `json:"full_name" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+	Role     string `json:"role" binding:"required,oneof=super_admin outlet_admin washing_worker ironing_worker packing_worker driver"`
 }
 
 type ForgotPasswordRequest struct {
