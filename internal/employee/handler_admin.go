@@ -308,20 +308,19 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	if req.Role == "outlet_admin" {
-		existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
-			return
-		}
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if !existing.OutletID.Valid {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_admin must have an outlet; assign one via PATCH .../employees/:id/outlet first"})
-			return
-		}
+	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Role == "outlet_admin" && !existing.OutletID.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_admin must have an outlet; assign one via PATCH .../employees/:id/outlet first"})
+		return
 	}
 
 	updated, err := h.Queries.UpdateEmployee(c.Request.Context(), db.UpdateEmployeeParams{
@@ -337,6 +336,17 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if existing.Role != updated.Role {
+		if err := h.Queries.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), employeeID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if _, err := h.Queries.IncrementEmployeeTokenVersion(c.Request.Context(), employeeID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	resp := toEmployeeResponse(updated)

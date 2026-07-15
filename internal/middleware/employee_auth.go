@@ -47,7 +47,7 @@ func EmployeeAuthMiddleware(secret string, queries *db.Queries) gin.HandlerFunc 
 		}
 
 		ctx.Set("employee_id", claims.EmployeeID)
-		ctx.Set("role", claims.Role)
+		ctx.Set("role", employee.Role)
 
 		ctx.Next()
 	}
