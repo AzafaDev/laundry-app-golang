@@ -186,11 +186,13 @@ func (q *Queries) IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.U
 }
 
 const listEmployees = `-- name: ListEmployees :many
-SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees
-WHERE (deleted_at IS NULL OR $1::boolean)
-  AND ($2::text IS NULL OR role = $2)
-  AND ($3::text IS NULL OR full_name ILIKE '%' || $3 || '%' OR email ILIKE '%' || $3 || '%')
-ORDER BY created_at DESC
+SELECT employees.id, employees.full_name, employees.email, employees.phone, employees.password_hash, employees.role, employees.is_active, employees.token_version, employees.deleted_at, employees.created_at, employees.updated_at, employees.outlet_id, o.name AS outlet_name, o.deleted_at AS outlet_deleted_at
+FROM employees
+LEFT JOIN outlets o ON o.id = employees.outlet_id
+WHERE (employees.deleted_at IS NULL OR $1::boolean)
+  AND ($2::text IS NULL OR employees.role = $2)
+  AND ($3::text IS NULL OR employees.full_name ILIKE '%' || $3 || '%' OR employees.email ILIKE '%' || $3 || '%')
+ORDER BY employees.created_at DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -202,7 +204,24 @@ type ListEmployeesParams struct {
 	RowLimit       int32       `json:"row_limit"`
 }
 
-func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]Employee, error) {
+type ListEmployeesRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	FullName        string             `json:"full_name"`
+	Email           string             `json:"email"`
+	Phone           pgtype.Text        `json:"phone"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	Role            string             `json:"role"`
+	IsActive        bool               `json:"is_active"`
+	TokenVersion    int32              `json:"token_version"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletDeletedAt pgtype.Timestamptz `json:"outlet_deleted_at"`
+}
+
+func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error) {
 	rows, err := q.db.Query(ctx, listEmployees,
 		arg.IncludeDeleted,
 		arg.Role,
@@ -214,9 +233,9 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Employee
+	var items []ListEmployeesRow
 	for rows.Next() {
-		var i Employee
+		var i ListEmployeesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.FullName,
@@ -230,6 +249,8 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.OutletID,
+			&i.OutletName,
+			&i.OutletDeletedAt,
 		); err != nil {
 			return nil, err
 		}

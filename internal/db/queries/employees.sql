@@ -10,11 +10,13 @@ WHERE id = $2
 RETURNING *;
 
 -- name: ListEmployees :many
-SELECT * FROM employees
-WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
-  AND (sqlc.narg(role)::text IS NULL OR role = sqlc.narg(role))
-  AND (sqlc.narg(search)::text IS NULL OR full_name ILIKE '%' || sqlc.narg(search) || '%' OR email ILIKE '%' || sqlc.narg(search) || '%')
-ORDER BY created_at DESC
+SELECT employees.*, o.name AS outlet_name, o.deleted_at AS outlet_deleted_at
+FROM employees
+LEFT JOIN outlets o ON o.id = employees.outlet_id
+WHERE (employees.deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
+  AND (sqlc.narg(role)::text IS NULL OR employees.role = sqlc.narg(role))
+  AND (sqlc.narg(search)::text IS NULL OR employees.full_name ILIKE '%' || sqlc.narg(search) || '%' OR employees.email ILIKE '%' || sqlc.narg(search) || '%')
+ORDER BY employees.created_at DESC
 LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
 
 -- name: CountEmployees :one

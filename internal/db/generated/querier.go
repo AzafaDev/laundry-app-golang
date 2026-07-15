@@ -48,7 +48,7 @@ type Querier interface {
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
-	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]Employee, error)
+	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error

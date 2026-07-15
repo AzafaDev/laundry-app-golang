@@ -66,6 +66,30 @@ func toEmployeeResponse(e db.Employee) EmployeeResponse {
 	return resp
 }
 
+// toEmployeeResponseWithOutlet maps a db.ListEmployeesRow (employees LEFT
+// JOIN outlets) into EmployeeResponse, including the joined outlet name and
+// whether that outlet has been soft-deleted.
+func toEmployeeResponseWithOutlet(row db.ListEmployeesRow) EmployeeResponse {
+	resp := toEmployeeResponse(db.Employee{
+		ID:        row.ID,
+		FullName:  row.FullName,
+		Email:     row.Email,
+		Phone:     row.Phone,
+		Role:      row.Role,
+		OutletID:  row.OutletID,
+		IsActive:  row.IsActive,
+		DeletedAt: row.DeletedAt,
+	})
+
+	if row.OutletName.Valid {
+		name := row.OutletName.String
+		resp.OutletName = &name
+	}
+	resp.OutletDeleted = row.OutletDeletedAt.Valid
+
+	return resp
+}
+
 // isUniqueViolation reports whether err is a Postgres unique-constraint
 // violation (e.g. duplicate email).
 func isUniqueViolation(err error) bool {
