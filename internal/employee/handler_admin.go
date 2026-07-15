@@ -115,6 +115,59 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	c.JSON(http.StatusCreated, resp)
 }
 
+func (h *Handler) ResendInvite(c *gin.Context) {
+	var employeeID pgtype.UUID
+	if err := employeeID.Scan(c.Param("id")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		return
+	}
+
+	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if existing.IsActive {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "employee is already active"})
+		return
+	}
+
+	if err := h.Queries.DeleteUnusedEmployeePasswordResetTokens(c.Request.Context(), employeeID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	inviteSent := false
+	token, err := auth.GenerateRandomToken()
+	if err != nil {
+		log.Printf("error generating invite token: %v", err)
+	} else {
+		_, err = h.Queries.CreateEmployeePasswordResetToken(c.Request.Context(), db.CreateEmployeePasswordResetTokenParams{
+			EmployeeID: existing.ID,
+			TokenHash:  auth.HashToken(token),
+			ExpiresAt:  pgtype.Timestamptz{Time: time.Now().Add(1 * time.Hour), Valid: true},
+		})
+		if err != nil {
+			log.Printf("error creating invite token: %v", err)
+		} else if err := h.emailClient.SendEmployeePasswordResetEmail(existing.Email, token); err != nil {
+			log.Printf("error sending invite email: %v", err)
+		} else {
+			inviteSent = true
+		}
+	}
+
+	resp := toEmployeeResponse(existing)
+	resp.InviteSent = inviteSent
+	resp.Message = "undangan berhasil dikirim ulang!"
+
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {

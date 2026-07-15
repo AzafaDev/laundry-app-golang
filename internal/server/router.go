@@ -76,6 +76,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
 	router.PATCH("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.UpdateEmployee)
 	router.PATCH("/api/v1/employee/admin/employees/:id/outlet", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.AssignEmployeeOutlet)
+	router.POST("/api/v1/employee/admin/employees/:id/resend-invite", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.ResendInvite)
 	router.DELETE("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.SoftDeleteEmployee)
 	router.DELETE("/api/v1/employee/admin/employees/:id/permanent", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.HardDeleteEmployee)
 
