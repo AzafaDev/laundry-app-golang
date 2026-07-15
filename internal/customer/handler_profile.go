@@ -39,10 +39,12 @@ func (h *Handler) Profile(c *gin.Context) {
 	}
 
 	customerResponse := CustomerResponse{
-		ID:       existingCustomer.ID.String(),
-		FullName: existingCustomer.FullName,
-		Email:    existingCustomer.Email,
-		Message:  "get profile successfully",
+		ID:        existingCustomer.ID.String(),
+		FullName:  existingCustomer.FullName,
+		Email:     existingCustomer.Email,
+		Phone:     existingCustomer.Phone.String,
+		AvatarURL: existingCustomer.AvatarUrl.String,
+		Message:   "get profile successfully",
 	}
 
 	c.JSON(http.StatusOK, customerResponse)
