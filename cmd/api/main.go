@@ -40,7 +40,7 @@ func main() {
 	geocodeClient := geocode.NewClient(cfg.OpenCageAPIKey)
 
 	customerHandler := customer.NewHandler(queries, pool, cfg, emailClient, storageClient, googleClient, geocodeClient)
-	employeeHandler := employee.NewHandler(queries, pool, cfg, emailClient)
+	employeeHandler := employee.NewHandler(queries, pool, cfg, emailClient, geocodeClient)
 	wilayahHandler := wilayah.NewHandler(queries)
 	outletHandler := outlet.NewHandler(queries)
 
