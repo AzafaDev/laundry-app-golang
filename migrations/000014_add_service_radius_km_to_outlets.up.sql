@@ -1,0 +1,2 @@
+ALTER TABLE outlets
+  ADD COLUMN service_radius_km NUMERIC(5, 2) NOT NULL DEFAULT 10.0;

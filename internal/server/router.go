@@ -6,6 +6,7 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/employee"
 	"laundry-app-with-golang/internal/middleware"
+	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -61,6 +62,10 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.GET("/api/v1/customer/geocode", authMiddleware, customerHandler.Geocode)
 	router.GET("/api/v1/customer/geocode/search", authMiddleware, customerHandler.SearchGeocode)
+
+	router.POST("/api/v1/customer/orders", authMiddleware, orderHandler.CreateOrder)
+	router.GET("/api/v1/customer/orders", authMiddleware, orderHandler.ListOrders)
+	router.POST("/api/v1/customer/orders/:id/complaint", authMiddleware, orderHandler.CreateComplaint)
 
 	router.POST("/api/v1/employee/auth/login", employeeHandler.Login)
 	router.POST("/api/v1/employee/auth/refresh", employeeHandler.Refresh)

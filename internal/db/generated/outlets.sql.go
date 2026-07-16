@@ -23,17 +23,18 @@ func (q *Queries) CountOutlets(ctx context.Context) (int64, error) {
 }
 
 const createOutlet = `-- name: CreateOutlet :one
-INSERT INTO outlets (name, address, latitude, longitude, is_active)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at
+INSERT INTO outlets (name, address, latitude, longitude, is_active, service_radius_km)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km
 `
 
 type CreateOutletParams struct {
-	Name      string         `json:"name"`
-	Address   string         `json:"address"`
-	Latitude  pgtype.Numeric `json:"latitude"`
-	Longitude pgtype.Numeric `json:"longitude"`
-	IsActive  bool           `json:"is_active"`
+	Name            string         `json:"name"`
+	Address         string         `json:"address"`
+	Latitude        pgtype.Numeric `json:"latitude"`
+	Longitude       pgtype.Numeric `json:"longitude"`
+	IsActive        bool           `json:"is_active"`
+	ServiceRadiusKm pgtype.Numeric `json:"service_radius_km"`
 }
 
 func (q *Queries) CreateOutlet(ctx context.Context, arg CreateOutletParams) (Outlet, error) {
@@ -43,6 +44,7 @@ func (q *Queries) CreateOutlet(ctx context.Context, arg CreateOutletParams) (Out
 		arg.Latitude,
 		arg.Longitude,
 		arg.IsActive,
+		arg.ServiceRadiusKm,
 	)
 	var i Outlet
 	err := row.Scan(
@@ -55,12 +57,13 @@ func (q *Queries) CreateOutlet(ctx context.Context, arg CreateOutletParams) (Out
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ServiceRadiusKm,
 	)
 	return i, err
 }
 
 const getOutletByID = `-- name: GetOutletByID :one
-SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at FROM outlets
+SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km FROM outlets
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -77,12 +80,49 @@ func (q *Queries) GetOutletByID(ctx context.Context, id pgtype.UUID) (Outlet, er
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ServiceRadiusKm,
 	)
 	return i, err
 }
 
+const listActiveOutlets = `-- name: ListActiveOutlets :many
+SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km FROM outlets
+WHERE is_active = true AND deleted_at IS NULL
+`
+
+func (q *Queries) ListActiveOutlets(ctx context.Context) ([]Outlet, error) {
+	rows, err := q.db.Query(ctx, listActiveOutlets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Outlet
+	for rows.Next() {
+		var i Outlet
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.Latitude,
+			&i.Longitude,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.ServiceRadiusKm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOutlets = `-- name: ListOutlets :many
-SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at FROM outlets
+SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km FROM outlets
 WHERE deleted_at IS NULL
 ORDER BY name
 LIMIT $1 OFFSET $2
@@ -112,6 +152,7 @@ func (q *Queries) ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Out
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.ServiceRadiusKm,
 		); err != nil {
 			return nil, err
 		}
@@ -136,18 +177,19 @@ func (q *Queries) SoftDeleteOutlet(ctx context.Context, id pgtype.UUID) error {
 
 const updateOutlet = `-- name: UpdateOutlet :one
 UPDATE outlets
-SET name = $1, address = $2, latitude = $3, longitude = $4, is_active = $5, updated_at = now()
-WHERE id = $6 AND deleted_at IS NULL
-RETURNING id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at
+SET name = $1, address = $2, latitude = $3, longitude = $4, is_active = $5, service_radius_km = $6, updated_at = now()
+WHERE id = $7 AND deleted_at IS NULL
+RETURNING id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km
 `
 
 type UpdateOutletParams struct {
-	Name      string         `json:"name"`
-	Address   string         `json:"address"`
-	Latitude  pgtype.Numeric `json:"latitude"`
-	Longitude pgtype.Numeric `json:"longitude"`
-	IsActive  bool           `json:"is_active"`
-	ID        pgtype.UUID    `json:"id"`
+	Name            string         `json:"name"`
+	Address         string         `json:"address"`
+	Latitude        pgtype.Numeric `json:"latitude"`
+	Longitude       pgtype.Numeric `json:"longitude"`
+	IsActive        bool           `json:"is_active"`
+	ServiceRadiusKm pgtype.Numeric `json:"service_radius_km"`
+	ID              pgtype.UUID    `json:"id"`
 }
 
 func (q *Queries) UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Outlet, error) {
@@ -157,6 +199,7 @@ func (q *Queries) UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Out
 		arg.Latitude,
 		arg.Longitude,
 		arg.IsActive,
+		arg.ServiceRadiusKm,
 		arg.ID,
 	)
 	var i Outlet
@@ -170,6 +213,7 @@ func (q *Queries) UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Out
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.ServiceRadiusKm,
 	)
 	return i, err
 }

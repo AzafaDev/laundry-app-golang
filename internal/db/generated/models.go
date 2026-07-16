@@ -14,6 +14,22 @@ type City struct {
 	Name       string `json:"name"`
 }
 
+type Complaint struct {
+	ID                     pgtype.UUID        `json:"id"`
+	OrderID                pgtype.UUID        `json:"order_id"`
+	CustomerID             pgtype.UUID        `json:"customer_id"`
+	ComplaintType          string             `json:"complaint_type"`
+	Description            string             `json:"description"`
+	PhotoUrls              []string           `json:"photo_urls"`
+	Status                 string             `json:"status"`
+	ExpectedResolutionDate pgtype.Date        `json:"expected_resolution_date"`
+	ResolvedBy             pgtype.UUID        `json:"resolved_by"`
+	ResolutionNotes        pgtype.Text        `json:"resolution_notes"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Customer struct {
 	ID           pgtype.UUID        `json:"id"`
 	FullName     string             `json:"full_name"`
@@ -103,16 +119,42 @@ type EmployeeRefreshToken struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type Order struct {
+	ID              pgtype.UUID        `json:"id"`
+	InvoiceNumber   string             `json:"invoice_number"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	PickupAddressID pgtype.UUID        `json:"pickup_address_id"`
+	Status          string             `json:"status"`
+	PickupDate      pgtype.Date        `json:"pickup_date"`
+	DeliveryFee     pgtype.Numeric     `json:"delivery_fee"`
+	TotalPrice      pgtype.Numeric     `json:"total_price"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type OrderStatusHistory struct {
+	ID            pgtype.UUID        `json:"id"`
+	OrderID       pgtype.UUID        `json:"order_id"`
+	OldStatus     pgtype.Text        `json:"old_status"`
+	NewStatus     string             `json:"new_status"`
+	ChangedByType string             `json:"changed_by_type"`
+	ChangedByID   pgtype.UUID        `json:"changed_by_id"`
+	Note          pgtype.Text        `json:"note"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type Outlet struct {
-	ID        pgtype.UUID        `json:"id"`
-	Name      string             `json:"name"`
-	Address   string             `json:"address"`
-	Latitude  pgtype.Numeric     `json:"latitude"`
-	Longitude pgtype.Numeric     `json:"longitude"`
-	IsActive  bool               `json:"is_active"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	ID              pgtype.UUID        `json:"id"`
+	Name            string             `json:"name"`
+	Address         string             `json:"address"`
+	Latitude        pgtype.Numeric     `json:"latitude"`
+	Longitude       pgtype.Numeric     `json:"longitude"`
+	IsActive        bool               `json:"is_active"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	ServiceRadiusKm pgtype.Numeric     `json:"service_radius_km"`
 }
 
 type PasswordResetToken struct {

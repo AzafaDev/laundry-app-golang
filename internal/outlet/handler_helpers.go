@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	defaultPageLimit = 50
-	maxPageLimit     = 100
+	defaultPageLimit       = 50
+	maxPageLimit           = 100
+	defaultServiceRadiusKM = 10.0
 )
 
 // parsePagination reads limit/offset query params, defaulting to 50/0 and
@@ -46,13 +47,14 @@ func numericToFloat64(n pgtype.Numeric) float64 {
 	return f.Float64
 }
 
-func toOutletResponse(id pgtype.UUID, name, address string, latitude, longitude pgtype.Numeric, isActive bool) OutletResponse {
+func toOutletResponse(id pgtype.UUID, name, address string, latitude, longitude pgtype.Numeric, isActive bool, serviceRadiusKM pgtype.Numeric) OutletResponse {
 	return OutletResponse{
-		ID:        id.String(),
-		Name:      name,
-		Address:   address,
-		Latitude:  numericToFloat64(latitude),
-		Longitude: numericToFloat64(longitude),
-		IsActive:  isActive,
+		ID:              id.String(),
+		Name:            name,
+		Address:         address,
+		Latitude:        numericToFloat64(latitude),
+		Longitude:       numericToFloat64(longitude),
+		IsActive:        isActive,
+		ServiceRadiusKM: numericToFloat64(serviceRadiusKM),
 	}
 }

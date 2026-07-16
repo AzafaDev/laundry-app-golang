@@ -12,8 +12,10 @@ import (
 
 type Querier interface {
 	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
+	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOutlets(ctx context.Context) (int64, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
+	CreateComplaint(ctx context.Context, arg CreateComplaintParams) (Complaint, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
@@ -21,6 +23,8 @@ type Querier interface {
 	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
 	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
 	CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error)
+	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
+	CreateOrderStatusHistory(ctx context.Context, arg CreateOrderStatusHistoryParams) (OrderStatusHistory, error)
 	CreateOutlet(ctx context.Context, arg CreateOutletParams) (Outlet, error)
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
@@ -38,6 +42,7 @@ type Querier interface {
 	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
 	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
+	GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (Order, error)
 	GetOutletByID(ctx context.Context, id pgtype.UUID) (Outlet, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
@@ -45,10 +50,12 @@ type Querier interface {
 	HardDeleteEmployee(ctx context.Context, id pgtype.UUID) error
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
 	IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error)
+	ListActiveOutlets(ctx context.Context) ([]Outlet, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
 	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)
+	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error

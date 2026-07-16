@@ -31,7 +31,7 @@ func (h *Handler) ListOutlets(c *gin.Context) {
 
 	data := make([]OutletResponse, 0, len(outlets))
 	for _, o := range outlets {
-		data = append(data, toOutletResponse(o.ID, o.Name, o.Address, o.Latitude, o.Longitude, o.IsActive))
+		data = append(data, toOutletResponse(o.ID, o.Name, o.Address, o.Latitude, o.Longitude, o.IsActive, o.ServiceRadiusKm))
 	}
 
 	c.JSON(http.StatusOK, OutletListResponse{Data: data, TotalCount: totalCount})
@@ -54,7 +54,7 @@ func (h *Handler) GetOutletByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toOutletResponse(outlet.ID, outlet.Name, outlet.Address, outlet.Latitude, outlet.Longitude, outlet.IsActive))
+	c.JSON(http.StatusOK, toOutletResponse(outlet.ID, outlet.Name, outlet.Address, outlet.Latitude, outlet.Longitude, outlet.IsActive, outlet.ServiceRadiusKm))
 }
 
 func (h *Handler) CreateOutlet(c *gin.Context) {
@@ -62,6 +62,10 @@ func (h *Handler) CreateOutlet(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if req.ServiceRadiusKM <= 0 {
+		req.ServiceRadiusKM = defaultServiceRadiusKM
 	}
 
 	latitude, err := float64ToNumeric(req.Latitude)
@@ -74,20 +78,26 @@ func (h *Handler) CreateOutlet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	serviceRadiusKM, err := float64ToNumeric(req.ServiceRadiusKM)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	created, err := h.Queries.CreateOutlet(c.Request.Context(), db.CreateOutletParams{
-		Name:      req.Name,
-		Address:   req.Address,
-		Latitude:  latitude,
-		Longitude: longitude,
-		IsActive:  req.IsActive,
+		Name:            req.Name,
+		Address:         req.Address,
+		Latitude:        latitude,
+		Longitude:       longitude,
+		IsActive:        req.IsActive,
+		ServiceRadiusKm: serviceRadiusKM,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp := toOutletResponse(created.ID, created.Name, created.Address, created.Latitude, created.Longitude, created.IsActive)
+	resp := toOutletResponse(created.ID, created.Name, created.Address, created.Latitude, created.Longitude, created.IsActive, created.ServiceRadiusKm)
 	resp.Message = "outlet created successfully"
 	c.JSON(http.StatusCreated, resp)
 }
@@ -105,6 +115,10 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 		return
 	}
 
+	if req.ServiceRadiusKM <= 0 {
+		req.ServiceRadiusKM = defaultServiceRadiusKM
+	}
+
 	latitude, err := float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -115,14 +129,20 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	serviceRadiusKM, err := float64ToNumeric(req.ServiceRadiusKM)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	updated, err := h.Queries.UpdateOutlet(c.Request.Context(), db.UpdateOutletParams{
-		Name:      req.Name,
-		Address:   req.Address,
-		Latitude:  latitude,
-		Longitude: longitude,
-		IsActive:  req.IsActive,
-		ID:        outletID,
+		Name:            req.Name,
+		Address:         req.Address,
+		Latitude:        latitude,
+		Longitude:       longitude,
+		IsActive:        req.IsActive,
+		ServiceRadiusKm: serviceRadiusKM,
+		ID:              outletID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		apperr.RespondError(c, http.StatusNotFound, "outlet_not_found")
@@ -133,7 +153,7 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 		return
 	}
 
-	resp := toOutletResponse(updated.ID, updated.Name, updated.Address, updated.Latitude, updated.Longitude, updated.IsActive)
+	resp := toOutletResponse(updated.ID, updated.Name, updated.Address, updated.Latitude, updated.Longitude, updated.IsActive, updated.ServiceRadiusKm)
 	resp.Message = "outlet updated successfully"
 	c.JSON(http.StatusOK, resp)
 }
