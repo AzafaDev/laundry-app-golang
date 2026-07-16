@@ -2,6 +2,7 @@ package employee
 
 import (
 	"errors"
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -24,7 +25,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 
 	req.FullName = strings.TrimSpace(req.FullName)
 	if len(req.FullName) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "full name is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "full_name_required")
 		return
 	}
 
@@ -34,7 +35,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	var passwordHash pgtype.Text
 	if !inviteMode {
 		if len(password) < 8 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+			apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 			return
 		}
 
@@ -49,17 +50,17 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	var outletID pgtype.UUID
 	if req.Role == "outlet_admin" {
 		if req.OutletID == nil || *req.OutletID == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_id is required for outlet_admin"})
+			apperr.RespondError(c, http.StatusBadRequest, "outlet_id_required_for_outlet_admin")
 			return
 		}
 	}
 	if req.OutletID != nil && *req.OutletID != "" {
 		if err := outletID.Scan(*req.OutletID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet_id"})
+			apperr.RespondError(c, http.StatusBadRequest, "invalid_outlet_id")
 			return
 		}
 		if _, err := h.Queries.GetOutletByID(c.Request.Context(), outletID); errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet not found"})
+			apperr.RespondError(c, http.StatusBadRequest, "outlet_not_found")
 			return
 		} else if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -78,7 +79,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	})
 
 	if isUniqueViolation(err) {
-		c.JSON(http.StatusConflict, gin.H{"error": "email has been registered"})
+		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}
 
@@ -118,13 +119,13 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 func (h *Handler) ResendInvite(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
 	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -133,7 +134,7 @@ func (h *Handler) ResendInvite(c *gin.Context) {
 	}
 
 	if existing.IsActive {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "employee is already active"})
+		apperr.RespondError(c, http.StatusBadRequest, "employee_already_active")
 		return
 	}
 
@@ -171,7 +172,7 @@ func (h *Handler) ResendInvite(c *gin.Context) {
 func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
@@ -183,7 +184,7 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 
 	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -194,16 +195,16 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 	var outletID pgtype.UUID
 	if req.OutletID == nil {
 		if existing.Role == "outlet_admin" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_admin must have an outlet"})
+			apperr.RespondError(c, http.StatusBadRequest, "outlet_admin_requires_outlet")
 			return
 		}
 	} else {
 		if err := outletID.Scan(*req.OutletID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet_id"})
+			apperr.RespondError(c, http.StatusBadRequest, "invalid_outlet_id")
 			return
 		}
 		if _, err := h.Queries.GetOutletByID(c.Request.Context(), outletID); errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "outlet not found"})
+			apperr.RespondError(c, http.StatusBadRequest, "outlet_not_found")
 			return
 		} else if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -272,13 +273,13 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 func (h *Handler) GetEmployeeByIDAdmin(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
 	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -292,7 +293,7 @@ func (h *Handler) GetEmployeeByIDAdmin(c *gin.Context) {
 func (h *Handler) UpdateEmployee(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
@@ -304,13 +305,13 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 
 	req.FullName = strings.TrimSpace(req.FullName)
 	if len(req.FullName) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "full name is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "full_name_required")
 		return
 	}
 
 	existing, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -319,7 +320,7 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 	}
 
 	if req.Role == "outlet_admin" && !existing.OutletID.Valid {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "outlet_admin must have an outlet; assign one via PATCH .../employees/:id/outlet first"})
+		apperr.RespondError(c, http.StatusBadRequest, "outlet_admin_requires_outlet_assign")
 		return
 	}
 
@@ -330,7 +331,7 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 		ID:       employeeID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -378,17 +379,17 @@ func selfDeleteGuard(c *gin.Context, targetID pgtype.UUID) bool {
 func (h *Handler) SoftDeleteEmployee(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
 	if selfDeleteGuard(c, employeeID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
+		apperr.RespondError(c, http.StatusBadRequest, "cannot_delete_self")
 		return
 	}
 
 	if _, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID); errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -425,18 +426,18 @@ func (h *Handler) SoftDeleteEmployee(c *gin.Context) {
 func (h *Handler) HardDeleteEmployee(c *gin.Context) {
 	var employeeID pgtype.UUID
 	if err := employeeID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid employee id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_employee_id")
 		return
 	}
 
 	if selfDeleteGuard(c, employeeID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete your own account"})
+		apperr.RespondError(c, http.StatusBadRequest, "cannot_delete_self")
 		return
 	}
 
 	existing, err := h.Queries.GetEmployeeByIDAny(c.Request.Context(), employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "employee not found"})
+		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	}
 	if err != nil {
@@ -445,7 +446,7 @@ func (h *Handler) HardDeleteEmployee(c *gin.Context) {
 	}
 
 	if !existing.DeletedAt.Valid {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "employee must be soft-deleted first"})
+		apperr.RespondError(c, http.StatusBadRequest, "employee_must_be_deleted_first")
 		return
 	}
 

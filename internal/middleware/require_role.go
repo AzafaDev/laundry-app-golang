@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		role, exists := ctx.Get("role")
 		if !exists {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
@@ -22,6 +23,6 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			}
 		}
 
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		apperr.AbortWithError(ctx, http.StatusForbidden, "insufficient_permissions")
 	}
 }

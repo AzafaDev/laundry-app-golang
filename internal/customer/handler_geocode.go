@@ -2,6 +2,7 @@ package customer
 
 import (
 	"errors"
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/geocode"
 	"net/http"
 	"strconv"
@@ -14,13 +15,13 @@ const defaultGeocodeSearchLimit = 5
 func (h *Handler) Geocode(c *gin.Context) {
 	q := c.Query("q")
 	if q == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "query_required")
 		return
 	}
 
 	result, err := h.geocodeClient.Geocode(c.Request.Context(), q)
 	if errors.Is(err, geocode.ErrNoResults) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	}
 	if err != nil {
@@ -34,7 +35,7 @@ func (h *Handler) Geocode(c *gin.Context) {
 func (h *Handler) SearchGeocode(c *gin.Context) {
 	q := c.Query("q")
 	if q == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "query_required")
 		return
 	}
 

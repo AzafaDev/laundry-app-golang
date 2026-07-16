@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -22,12 +23,17 @@ func (h *Handler) Register(c *gin.Context) {
 
 	req.Password = strings.TrimSpace(req.Password)
 	if len(req.Password) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 		return
 	}
 	req.FullName = strings.TrimSpace(req.FullName)
 	if len(req.FullName) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "full name is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "full_name_required")
+		return
+	}
+	req.Phone = strings.TrimSpace(req.Phone)
+	if len(req.Phone) == 0 {
+		apperr.RespondError(c, http.StatusBadRequest, "phone_required")
 		return
 	}
 
@@ -40,10 +46,11 @@ func (h *Handler) Register(c *gin.Context) {
 		FullName:     req.FullName,
 		Email:        req.Email,
 		PasswordHash: pgtype.Text{String: hashedPassword, Valid: true},
+		Phone:        pgtype.Text{String: req.Phone, Valid: true},
 	})
 
 	if isUniqueViolation(err) {
-		c.JSON(http.StatusConflict, gin.H{"error": "email has been registered"})
+		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}
 
@@ -95,17 +102,17 @@ func (h *Handler) Login(c *gin.Context) {
 
 	customer, err := h.Queries.GetCustomerByEmail(c.Request.Context(), req.Email)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 
 	if customer.PasswordHash.Valid {
 		if err := auth.ComparePassword(customer.PasswordHash.String, req.Password); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+			apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 			return
 		}
 	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 
@@ -146,7 +153,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	customer, err := h.Queries.GetCustomerByID(c.Request.Context(), existingRefreshToken.CustomerID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
@@ -299,13 +306,13 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	passwordResetToken, err := h.Queries.GetPasswordResetTokenByHash(c.Request.Context(), hashedToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_or_expired_token")
 		return
 	}
 
 	req.NewPassword = strings.TrimSpace(req.NewPassword)
 	if len(req.NewPassword) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 		return
 	}
 

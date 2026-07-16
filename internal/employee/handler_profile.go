@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
@@ -47,13 +48,13 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := auth.ComparePassword(existingEmployee.PasswordHash.String, req.CurrentPassword); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_password")
 		return
 	}
 
 	req.NewPassword = strings.TrimSpace(req.NewPassword)
 	if len(req.NewPassword) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 		return
 	}
 

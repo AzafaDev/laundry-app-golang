@@ -2,6 +2,7 @@ package customer
 
 import (
 	"errors"
+	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -123,7 +124,7 @@ func (h *Handler) ListAddresses(c *gin.Context) {
 func (h *Handler) GetAddressByID(c *gin.Context) {
 	var addressID pgtype.UUID
 	if err := addressID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid address id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_address_id")
 		return
 	}
 
@@ -138,7 +139,7 @@ func (h *Handler) GetAddressByID(c *gin.Context) {
 		CustomerID: customerID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	}
 	if err != nil {
@@ -163,7 +164,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 
 	var addressID pgtype.UUID
 	if err := addressID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid address id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_address_id")
 		return
 	}
 
@@ -197,7 +198,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 		CustomerID: customerID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	}
 	if err != nil {
@@ -241,7 +242,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 	var addressID pgtype.UUID
 	if err := addressID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid address id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_address_id")
 		return
 	}
 
@@ -255,7 +256,7 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 		ID:         addressID,
 		CustomerID: customerID,
 	}); errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -287,7 +288,7 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 func (h *Handler) DeleteAddress(c *gin.Context) {
 	var addressID pgtype.UUID
 	if err := addressID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid address id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_address_id")
 		return
 	}
 
@@ -302,7 +303,7 @@ func (h *Handler) DeleteAddress(c *gin.Context) {
 		CustomerID: customerID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "address not found"})
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	}
 	if err != nil {

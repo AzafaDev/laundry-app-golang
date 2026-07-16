@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -71,13 +72,13 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 
 	if err := auth.ComparePassword(existingCustomer.PasswordHash.String, req.CurrentPassword); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_password")
 		return
 	}
 
 	req.NewPassword = strings.TrimSpace(req.NewPassword)
 	if len(req.NewPassword) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 		return
 	}
 
@@ -134,12 +135,12 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	req.FullName = strings.TrimSpace(req.FullName)
 	if len(req.FullName) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "full name is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "full_name_required")
 		return
 	}
 	req.Phone = strings.TrimSpace(req.Phone)
 	if len(req.Phone) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "phone is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "phone_required")
 		return
 	}
 
@@ -193,12 +194,12 @@ func (h *Handler) RequestEmailChange(c *gin.Context) {
 	}
 
 	if err := auth.ComparePassword(existingCustomer.PasswordHash.String, req.CurrentPassword); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_password")
 		return
 	}
 
 	if _, err := h.Queries.GetCustomerByEmail(c.Request.Context(), req.NewEmail); err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "email has been registered"})
+		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}
 
@@ -239,7 +240,7 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 
 	emailChangeToken, err := h.Queries.GetEmailChangeTokenByHash(c.Request.Context(), hashedToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_or_expired_token")
 		return
 	}
 
@@ -249,7 +250,7 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 	})
 
 	if isUniqueViolation(err) {
-		c.JSON(http.StatusConflict, gin.H{"error": "email has been registered"})
+		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}
 
@@ -287,13 +288,13 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	}
 
 	if fileHeader.Size > maxAvatarSize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar file is too large, max 2MB"})
+		apperr.RespondError(c, http.StatusBadRequest, "avatar_too_large")
 		return
 	}
 
 	contentType := fileHeader.Header.Get("Content-Type")
 	if !allowedAvatarContentTypes[contentType] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar must be jpeg, png, or webp"})
+		apperr.RespondError(c, http.StatusBadRequest, "avatar_invalid_type")
 		return
 	}
 

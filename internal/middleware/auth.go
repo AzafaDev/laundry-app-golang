@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
@@ -25,18 +26,18 @@ func AuthMiddleware(secret string, queries *db.Queries) gin.HandlerFunc {
 
 		var customerUUID pgtype.UUID
 		if err := customerUUID.Scan(claims.CustomerID); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
 		customer, err := queries.GetCustomerByID(ctx.Request.Context(), customerUUID)
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
 		if customer.TokenVersion != claims.TokenVersion {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token has been revoked"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "token_revoked")
 			return
 		}
 

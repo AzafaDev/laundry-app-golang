@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
@@ -25,24 +26,24 @@ func EmployeeAuthMiddleware(secret string, queries *db.Queries) gin.HandlerFunc 
 
 		var employeeUUID pgtype.UUID
 		if err := employeeUUID.Scan(claims.EmployeeID); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
 		employee, err := queries.GetEmployeeByID(ctx.Request.Context(), employeeUUID)
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
 		// Two independent reject conditions — do NOT combine with && or ||.
 		if employee.TokenVersion != claims.TokenVersion {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token has been revoked"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "token_revoked")
 			return
 		}
 
 		if !employee.IsActive {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "account is inactive"})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "account_inactive")
 			return
 		}
 

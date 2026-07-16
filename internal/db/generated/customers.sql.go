@@ -12,8 +12,8 @@ import (
 )
 
 const createCustomer = `-- name: CreateCustomer :one
-INSERT INTO customers (full_name, email, password_hash)
-VALUES ($1, $2, $3)
+INSERT INTO customers (full_name, email, password_hash, phone)
+VALUES ($1, $2, $3, $4)
 RETURNING id, full_name, email, phone, password_hash, is_verified, is_active, token_version, deleted_at, created_at, updated_at, avatar_url
 `
 
@@ -21,10 +21,16 @@ type CreateCustomerParams struct {
 	FullName     string      `json:"full_name"`
 	Email        string      `json:"email"`
 	PasswordHash pgtype.Text `json:"password_hash"`
+	Phone        pgtype.Text `json:"phone"`
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
-	row := q.db.QueryRow(ctx, createCustomer, arg.FullName, arg.Email, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, createCustomer,
+		arg.FullName,
+		arg.Email,
+		arg.PasswordHash,
+		arg.Phone,
+	)
 	var i Customer
 	err := row.Scan(
 		&i.ID,

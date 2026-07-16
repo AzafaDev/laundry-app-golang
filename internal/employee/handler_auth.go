@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
@@ -21,22 +22,22 @@ func (h *Handler) Login(c *gin.Context) {
 
 	employee, err := h.Queries.GetEmployeeByEmail(c.Request.Context(), req.Email)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 
 	if employee.PasswordHash.Valid {
 		if err := auth.ComparePassword(employee.PasswordHash.String, req.Password); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+			apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 			return
 		}
 	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 
 	if !employee.IsActive {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 
@@ -69,7 +70,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	employee, err := h.Queries.GetEmployeeByID(c.Request.Context(), existingRefreshToken.EmployeeID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
@@ -150,13 +151,13 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	passwordResetToken, err := h.Queries.GetEmployeePasswordResetTokenByHash(c.Request.Context(), hashedToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_or_expired_token")
 		return
 	}
 
 	req.NewPassword = strings.TrimSpace(req.NewPassword)
 	if len(req.NewPassword) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		apperr.RespondError(c, http.StatusBadRequest, "password_too_short")
 		return
 	}
 

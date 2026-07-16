@@ -2,6 +2,7 @@ package outlet
 
 import (
 	"errors"
+	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -39,13 +40,13 @@ func (h *Handler) ListOutlets(c *gin.Context) {
 func (h *Handler) GetOutletByID(c *gin.Context) {
 	var outletID pgtype.UUID
 	if err := outletID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_outlet_id")
 		return
 	}
 
 	outlet, err := h.Queries.GetOutletByID(c.Request.Context(), outletID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "outlet not found"})
+		apperr.RespondError(c, http.StatusNotFound, "outlet_not_found")
 		return
 	}
 	if err != nil {
@@ -94,7 +95,7 @@ func (h *Handler) CreateOutlet(c *gin.Context) {
 func (h *Handler) UpdateOutlet(c *gin.Context) {
 	var outletID pgtype.UUID
 	if err := outletID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_outlet_id")
 		return
 	}
 
@@ -124,7 +125,7 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 		ID:        outletID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "outlet not found"})
+		apperr.RespondError(c, http.StatusNotFound, "outlet_not_found")
 		return
 	}
 	if err != nil {
@@ -140,12 +141,12 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 func (h *Handler) SoftDeleteOutlet(c *gin.Context) {
 	var outletID pgtype.UUID
 	if err := outletID.Scan(c.Param("id")); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid outlet id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_outlet_id")
 		return
 	}
 
 	if _, err := h.Queries.GetOutletByID(c.Request.Context(), outletID); errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "outlet not found"})
+		apperr.RespondError(c, http.StatusNotFound, "outlet_not_found")
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

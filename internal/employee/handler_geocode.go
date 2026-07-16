@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/geocode"
 	"net/http"
 	"strconv"
@@ -13,7 +14,7 @@ const defaultGeocodeSearchLimit = 5
 func (h *Handler) SearchGeocode(c *gin.Context) {
 	q := c.Query("q")
 	if q == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})
+		apperr.RespondError(c, http.StatusBadRequest, "query_required")
 		return
 	}
 

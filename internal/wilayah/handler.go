@@ -4,6 +4,7 @@
 package wilayah
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"strconv"
@@ -32,7 +33,7 @@ func (h *Handler) ListProvinces(c *gin.Context) {
 func (h *Handler) ListCitiesByProvince(c *gin.Context) {
 	provinceID, err := strconv.ParseInt(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid province id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_province_id")
 		return
 	}
 
@@ -48,7 +49,7 @@ func (h *Handler) ListCitiesByProvince(c *gin.Context) {
 func (h *Handler) ListDistrictsByCity(c *gin.Context) {
 	cityID, err := strconv.ParseInt(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid city id"})
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_city_id")
 		return
 	}
 
