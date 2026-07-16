@@ -23,6 +23,9 @@ type Config struct {
 	OpenCageAPIKey          string
 	CheckinRadiusMeters     int
 	LateThresholdMinutes    int
+	MidtransServerKey       string
+	MidtransClientKey       string
+	MidtransIsProduction    bool
 }
 
 func Load() Config {
@@ -45,6 +48,9 @@ func Load() Config {
 		OpenCageAPIKey:          mustGetEnv("OPENCAGE_API_KEY"),
 		CheckinRadiusMeters:     getEnvInt("CHECKIN_RADIUS_METERS", 500),
 		LateThresholdMinutes:    getEnvInt("LATE_THRESHOLD_MINUTES", 30),
+		MidtransServerKey:       mustGetEnv("MIDTRANS_SERVER_KEY"),
+		MidtransClientKey:       mustGetEnv("MIDTRANS_CLIENT_KEY"),
+		MidtransIsProduction:    getEnvBool("MIDTRANS_IS_PRODUCTION", false),
 	}
 }
 
@@ -65,6 +71,18 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fallback
+	}
+	return b
 }
 
 func mustGetEnv(key string) string {

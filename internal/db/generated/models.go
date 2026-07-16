@@ -269,6 +269,22 @@ type PasswordResetToken struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type Payment struct {
+	ID                   pgtype.UUID        `json:"id"`
+	OrderID              pgtype.UUID        `json:"order_id"`
+	Amount               pgtype.Numeric     `json:"amount"`
+	PaymentMethod        string             `json:"payment_method"`
+	GatewayName          pgtype.Text        `json:"gateway_name"`
+	GatewayTransactionID pgtype.Text        `json:"gateway_transaction_id"`
+	GatewayResponse      []byte             `json:"gateway_response"`
+	PaymentLink          pgtype.Text        `json:"payment_link"`
+	Status               string             `json:"status"`
+	ExpiredAt            pgtype.Timestamptz `json:"expired_at"`
+	PaidAt               pgtype.Timestamptz `json:"paid_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Province struct {
 	ID   int32  `json:"id"`
 	Name string `json:"name"`

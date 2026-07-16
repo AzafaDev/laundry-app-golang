@@ -10,6 +10,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
+	github.com/midtrans/midtrans-go v1.3.8
 	github.com/resend/resend-go/v2 v2.28.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/oauth2 v0.36.0

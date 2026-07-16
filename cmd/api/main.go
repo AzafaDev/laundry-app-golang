@@ -15,15 +15,26 @@ import (
 	oauthpkg "laundry-app-with-golang/internal/oauth"
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
+	"laundry-app-with-golang/internal/payment"
 	"laundry-app-with-golang/internal/server"
 	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/storage"
 	"laundry-app-with-golang/internal/wilayah"
 	"log"
+
+	"github.com/midtrans/midtrans-go"
 )
 
 func main() {
 	cfg := config.Load()
+
+	midtrans.ServerKey = cfg.MidtransServerKey
+	midtrans.ClientKey = cfg.MidtransClientKey
+	if cfg.MidtransIsProduction {
+		midtrans.Environment = midtrans.Production
+	} else {
+		midtrans.Environment = midtrans.Sandbox
+	}
 
 	ctx := context.Background()
 
@@ -53,8 +64,9 @@ func main() {
 	clothingTypeHandler := clothingtype.NewHandler(queries)
 	shiftHandler := shift.NewHandler(pool, queries)
 	attendanceHandler := attendance.NewHandler(pool, queries, cfg)
+	paymentHandler := payment.NewHandler(pool, queries, cfg)
 
-	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, shiftHandler, attendanceHandler, cfg, queries)
+	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, shiftHandler, attendanceHandler, paymentHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

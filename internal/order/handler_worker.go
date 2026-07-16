@@ -276,6 +276,22 @@ func (h *Handler) CompleteStation(c *gin.Context) {
 // the race and reports 409 rather than double-processing.
 func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, station string, orderID pgtype.UUID) {
 	nextStatus := stationNextStatus[station]
+	paidDeliveryTask := false
+
+	// Retrofit (ticket #2): a customer may pay before packing finishes. If
+	// so, skip waiting_payment entirely and go straight to
+	// ready_for_delivery, creating the delivery driver_task here instead of
+	// leaving the order stuck waiting for a webhook that already fired.
+	if station == StatusPacking {
+		pay, err := h.Queries.GetPaymentByOrderID(c.Request.Context(), orderID)
+		if err == nil && pay.Status == "paid" {
+			nextStatus = StatusReadyForDelivery
+			paidDeliveryTask = true
+		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
@@ -298,6 +314,16 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if paidDeliveryTask {
+		if _, err := qtx.CreateDriverTask(c.Request.Context(), db.CreateDriverTaskParams{
+			OrderID:  orderID,
+			TaskType: "delivery",
+		}); err != nil && !isUniqueViolation(err) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	if _, err := qtx.CreateOrderStatusHistory(c.Request.Context(), db.CreateOrderStatusHistoryParams{

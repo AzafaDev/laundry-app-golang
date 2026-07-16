@@ -95,6 +95,8 @@ type Querier interface {
 	GetOrderByIDAny(ctx context.Context, id pgtype.UUID) (Order, error)
 	GetOutletByID(ctx context.Context, id pgtype.UUID) (Outlet, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
+	GetPaymentByGatewayTransactionID(ctx context.Context, gatewayTransactionID pgtype.Text) (Payment, error)
+	GetPaymentByOrderID(ctx context.Context, orderID pgtype.UUID) (Payment, error)
 	GetPendingBypassRequest(ctx context.Context, arg GetPendingBypassRequestParams) (BypassRequest, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
@@ -164,7 +166,12 @@ type Querier interface {
 	UpdateLaundryItem(ctx context.Context, arg UpdateLaundryItemParams) (LaundryItem, error)
 	UpdateOrderStatusIfCurrent(ctx context.Context, arg UpdateOrderStatusIfCurrentParams) (Order, error)
 	UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Outlet, error)
+	UpdatePaymentStatus(ctx context.Context, arg UpdatePaymentStatusParams) (Payment, error)
 	UpdateWorkShift(ctx context.Context, arg UpdateWorkShiftParams) (WorkShift, error)
+	// Replicates the TS source's behavior as-is: a second create-transaction
+	// request for the same order overwrites the row with a fresh Midtrans
+	// transaction, orphaning the previous payment_link — not fixed here.
+	UpsertPaymentForOrder(ctx context.Context, arg UpsertPaymentForOrderParams) (Payment, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
 }
 

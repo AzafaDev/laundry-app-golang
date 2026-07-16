@@ -33,9 +33,10 @@ const (
 )
 
 // stationNextStatus maps a worker station's current order status to the
-// status it transitions to on completion. Packing always goes to
-// waiting_payment — payment (ticket #2) doesn't exist yet, so the TS
-// "skip to ready_for_delivery if already paid" override is not replicated.
+// status it transitions to on completion. Packing's default target is
+// waiting_payment; completeStation (handler_worker.go) overrides this to
+// StatusReadyForDelivery when the order was already paid before packing
+// finished (ticket #2 retrofit), mirroring the TS source's behavior.
 var stationNextStatus = map[string]string{
 	StatusWashing: StatusIroning,
 	StatusIroning: StatusPacking,
