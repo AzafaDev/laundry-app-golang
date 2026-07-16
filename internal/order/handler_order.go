@@ -2,8 +2,11 @@ package order
 
 import (
 	"errors"
+	"fmt"
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -205,6 +208,97 @@ func (h *Handler) ListOrders(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, OrderListResponse{Data: data, TotalCount: totalCount})
+}
+
+// CompleteOrder lets a customer manually confirm "order received and done"
+// (received_by_customer -> completed) instead of waiting for the ticket #10
+// auto-complete cron (48h after received_by_customer). Guarded with
+// UpdateOrderStatusIfCurrent — the cron runs hourly against the same table,
+// so a customer confirming at the same moment the cron processes this order
+// must not silently double-transition or double-write history.
+func (h *Handler) CompleteOrder(c *gin.Context) {
+	customerID, err := currentCustomerID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	var orderID pgtype.UUID
+	if err := orderID.Scan(c.Param("id")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_id")
+		return
+	}
+
+	ord, err := h.Queries.GetOrderByID(c.Request.Context(), db.GetOrderByIDParams{
+		ID:         orderID,
+		CustomerID: customerID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "order_not_found")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if ord.Status != StatusReceivedByCustomer {
+		apperr.RespondError(c, http.StatusBadRequest, "order_not_received")
+		return
+	}
+
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+
+	qtx := h.Queries.WithTx(tx)
+
+	updated, err := qtx.UpdateOrderStatusIfCurrent(c.Request.Context(), db.UpdateOrderStatusIfCurrentParams{
+		Status:   StatusCompleted,
+		ID:       orderID,
+		Status_2: StatusReceivedByCustomer,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Lost the race to the auto-complete cron (or a concurrent duplicate
+		// request) — the order is no longer received_by_customer, so this
+		// isn't a real error, just a stale attempt.
+		apperr.RespondError(c, http.StatusConflict, "order_already_processed")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if _, err := qtx.CreateOrderStatusHistory(c.Request.Context(), db.CreateOrderStatusHistoryParams{
+		OrderID:       updated.ID,
+		OldStatus:     pgtype.Text{String: StatusReceivedByCustomer, Valid: true},
+		NewStatus:     StatusCompleted,
+		ChangedByType: "customer",
+		ChangedByID:   customerID,
+		Note:          pgtype.Text{String: "Dikonfirmasi selesai oleh customer.", Valid: true},
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := notification.NotifyCustomer(c.Request.Context(), h.Queries, customerID, "Pesanan selesai",
+		fmt.Sprintf("Pesanan %s telah dikonfirmasi selesai.", updated.InvoiceNumber),
+		notification.TypeOrderUpdate, updated.ID); err != nil {
+		log.Printf("complete order %s: notify: %v", updated.ID, err)
+	}
+
+	resp := toOrderResponse(updated)
+	resp.Message = "order marked as completed"
+	c.JSON(http.StatusOK, resp)
 }
 
 const (
