@@ -4,7 +4,9 @@ import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -67,6 +69,13 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+ord.OutletID.String(), "order:complaint-submitted", gin.H{
+		"orderID":       orderID.String(),
+		"invoiceNumber": ord.InvoiceNumber,
+		"complaintType": created.ComplaintType,
+		"timestamp":     time.Now(),
+	})
 
 	resp := toComplaintResponse(created)
 	resp.Message = "complaint submitted successfully"

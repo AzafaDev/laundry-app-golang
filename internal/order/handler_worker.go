@@ -8,7 +8,9 @@ import (
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -343,6 +345,33 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 	if err := tx.Commit(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	outletChannel := "outlet:" + updated.OutletID.String()
+	sse.Default.Broadcast(outletChannel, "station:order-completed", gin.H{
+		"orderID":   updated.ID.String(),
+		"station":   station,
+		"newStatus": nextStatus,
+		"workerID":  employeeID.String(),
+		"outletID":  updated.OutletID.String(),
+		"timestamp": time.Now(),
+	})
+	if nextStatus == StatusWashing || nextStatus == StatusIroning || nextStatus == StatusPacking {
+		sse.Default.Broadcast(outletChannel, "station:new-order", gin.H{
+			"station": nextStatus,
+			"orderID": updated.ID.String(),
+		})
+	}
+	sse.Default.Broadcast("user:"+updated.CustomerID.String(), "order:status-updated", gin.H{
+		"orderID": updated.ID.String(),
+		"status":  nextStatus,
+	})
+	if paidDeliveryTask {
+		sse.Default.Broadcast(outletChannel, "order:payment-completed", gin.H{
+			"orderID":       updated.ID.String(),
+			"invoiceNumber": updated.InvoiceNumber,
+			"timestamp":     time.Now(),
+		})
 	}
 
 	// Customer-facing notification only fires when this completion resulted

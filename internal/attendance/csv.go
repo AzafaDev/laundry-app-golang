@@ -11,7 +11,7 @@ import (
 // internal/csv package — consistent with the "small per-package
 // duplication is fine" precedent set since ticket #6/#7.
 func writeCSV(c *gin.Context, filename string, header []string, rows [][]string, withBOM bool) {
-	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Disposition", "attachment; filename="+filename)
 
 	if withBOM {

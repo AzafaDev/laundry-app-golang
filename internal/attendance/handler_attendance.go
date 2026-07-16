@@ -5,6 +5,7 @@ import (
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/shift"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
 	"time"
 
@@ -44,7 +45,7 @@ func (h *Handler) CheckIn(c *gin.Context) {
 		return
 	}
 
-	outlet, err := resolveEmployeeOutlet(c.Request.Context(), h.Queries, employeeID)
+	outlet, employee, err := resolveEmployeeOutlet(c.Request.Context(), h.Queries, employeeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		apperr.RespondError(c, http.StatusBadRequest, "no_outlet_assigned")
 		return
@@ -100,6 +101,19 @@ func (h *Handler) CheckIn(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+outlet.ID.String(), "attendance:checkin", gin.H{
+		"employeeID":   employeeID.String(),
+		"employeeName": employee.FullName,
+		"outletID":     outlet.ID.String(),
+		"checkInTime":  now,
+		"attendanceID": created.ID.String(),
+	})
+	sse.Default.Broadcast("role:super_admin", "attendance:updated", gin.H{
+		"type":         "checkin",
+		"attendanceID": created.ID.String(),
+		"outletID":     outlet.ID.String(),
+	})
 
 	resp := toAttendanceResponse(created)
 	resp.Message = "check-in successful"
@@ -186,6 +200,23 @@ func (h *Handler) CheckOut(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	employeeName := ""
+	if employee, empErr := h.Queries.GetEmployeeByID(c.Request.Context(), employeeID); empErr == nil {
+		employeeName = employee.FullName
+	}
+	sse.Default.Broadcast("outlet:"+updated.OutletID.String(), "attendance:checkout", gin.H{
+		"employeeID":   employeeID.String(),
+		"employeeName": employeeName,
+		"outletID":     updated.OutletID.String(),
+		"checkOutTime": now,
+		"attendanceID": updated.ID.String(),
+	})
+	sse.Default.Broadcast("role:super_admin", "attendance:updated", gin.H{
+		"type":         "checkout",
+		"attendanceID": updated.ID.String(),
+		"outletID":     updated.OutletID.String(),
+	})
 
 	resp := toAttendanceResponse(updated)
 	resp.Message = "check-out successful"

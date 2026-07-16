@@ -5,6 +5,7 @@ import (
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
 	"time"
 
@@ -260,6 +261,12 @@ func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("user:"+updated.CustomerID.String(), "complaint:updated", gin.H{
+		"complaintID": updated.ID.String(),
+		"orderID":     updated.OrderID.String(),
+		"status":      updated.Status,
+	})
 
 	resp := toComplaintResponse(updated)
 	resp.Message = "complaint status updated successfully"

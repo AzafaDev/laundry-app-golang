@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"math"
 	"net/http"
 	"time"
@@ -233,6 +234,13 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		return
 	}
 
+	sse.Default.Broadcast("outlet:"+updatedOrder.OutletID.String(), "driver:task-claimed", gin.H{
+		"taskID":   claimed.ID.String(),
+		"driverID": employeeID.String(),
+		"orderID":  claimed.OrderID.String(),
+		"taskType": claimed.TaskType,
+	})
+
 	claimTitle := "Driver dalam perjalanan"
 	claimBody := fmt.Sprintf("Driver sedang menuju lokasi penjemputan untuk pesanan %s.", updatedOrder.InvoiceNumber)
 	claimNotifType := notification.TypeDriverPickupStarted
@@ -343,6 +351,18 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+updatedOrder.OutletID.String(), "driver:task-completed", gin.H{
+		"taskID":      completed.ID.String(),
+		"taskType":    completed.TaskType,
+		"orderID":     completed.OrderID.String(),
+		"driverID":    employeeID.String(),
+		"completedAt": time.Now(),
+	})
+	sse.Default.Broadcast("user:"+updatedOrder.CustomerID.String(), "order:status-updated", gin.H{
+		"orderID": updatedOrder.ID.String(),
+		"status":  nextStatus,
+	})
 
 	completeTitle, completeBody, completeNotifType := "Driver telah tiba di outlet", "Laundry Anda telah tiba di outlet dan akan segera diproses.", notification.TypeDriverArrivedOutlet
 	if completed.TaskType == "delivery" {

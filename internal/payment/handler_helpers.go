@@ -8,6 +8,7 @@ import (
 	"fmt"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"strconv"
 	"time"
 
@@ -169,9 +170,24 @@ func applyPaymentStatus(ctx context.Context, qtx *db.Queries, pay db.Payment, ne
 	}
 
 	if updatedOrder.OutletID.Valid {
+		title := "Pembayaran berhasil"
+		body := fmt.Sprintf("Pesanan %s telah dibayar oleh customer.", updatedOrder.InvoiceNumber)
+		outletChannel := "outlet:" + updatedOrder.OutletID.String()
+
+		sse.Default.Broadcast(outletChannel, "order:payment-completed", gin.H{
+			"orderID":       updatedOrder.ID.String(),
+			"invoiceNumber": updatedOrder.InvoiceNumber,
+			"timestamp":     time.Now(),
+		})
+		sse.Default.Broadcast(outletChannel, "outlet:payment-received", gin.H{
+			"outletID":        updatedOrder.OutletID.String(),
+			"title":           title,
+			"body":            body,
+			"relatedEntityID": updatedOrder.ID.String(),
+		})
+
 		_ = notification.NotifyOutletEmployees(ctx, qtx, updatedOrder.OutletID, []string{"outlet_admin", "driver"},
-			"Pembayaran berhasil", fmt.Sprintf("Pesanan %s telah dibayar oleh customer.", updatedOrder.InvoiceNumber),
-			notification.TypePaymentCompleted, updatedOrder.ID)
+			title, body, notification.TypePaymentCompleted, updatedOrder.ID)
 	}
 
 	return updatedPayment, nil

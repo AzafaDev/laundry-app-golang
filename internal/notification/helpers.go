@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/sse"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -71,26 +72,34 @@ func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
 // decides whether this notification is part of a larger atomic unit of
 // work or a best-effort side effect after commit.
 func NotifyCustomer(ctx context.Context, qtx *db.Queries, customerID pgtype.UUID, title, body, notifType string, relatedEntityID pgtype.UUID) error {
-	_, err := qtx.CreateCustomerNotification(ctx, db.CreateCustomerNotificationParams{
+	created, err := qtx.CreateCustomerNotification(ctx, db.CreateCustomerNotificationParams{
 		CustomerID:      customerID,
 		Title:           title,
 		Body:            body,
 		Type:            notifType,
 		RelatedEntityID: relatedEntityID,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	sse.Default.Broadcast("user:"+customerID.String(), "notification:new", created)
+	return nil
 }
 
 // NotifyEmployee creates a single in-app notification for an employee.
 func NotifyEmployee(ctx context.Context, qtx *db.Queries, employeeID pgtype.UUID, title, body, notifType string, relatedEntityID pgtype.UUID) error {
-	_, err := qtx.CreateEmployeeNotification(ctx, db.CreateEmployeeNotificationParams{
+	created, err := qtx.CreateEmployeeNotification(ctx, db.CreateEmployeeNotificationParams{
 		EmployeeID:      employeeID,
 		Title:           title,
 		Body:            body,
 		Type:            notifType,
 		RelatedEntityID: relatedEntityID,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	sse.Default.Broadcast("user:"+employeeID.String(), "notification:new", created)
+	return nil
 }
 
 // NotifyOutletEmployees notifies every active employee at outletID whose

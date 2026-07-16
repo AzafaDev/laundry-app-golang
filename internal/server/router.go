@@ -16,6 +16,7 @@ import (
 	"laundry-app-with-golang/internal/payment"
 	"laundry-app-with-golang/internal/report"
 	"laundry-app-with-golang/internal/shift"
+	"laundry-app-with-golang/internal/sse"
 	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
 	"time"
@@ -24,7 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, reportHandler *report.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, reportHandler *report.Handler, sseHandler *sse.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -39,6 +40,8 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	employeeAuthMiddleware := middleware.EmployeeAuthMiddleware(cfg.JWTEmployeeAccessSecret, queries)
 
 	router.GET("/health", healthCheck)
+
+	router.GET("/api/v1/events", sseHandler.Stream)
 
 	router.GET("/api/v1/customer/me", authMiddleware, customerHandler.Me)
 	router.GET("/api/v1/customer/profile", authMiddleware, customerHandler.Profile)

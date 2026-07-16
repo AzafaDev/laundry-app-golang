@@ -123,16 +123,19 @@ func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
 }
 
 // resolveEmployeeOutlet fetches the outlet assigned to an employee (for
-// check-in geofencing), returning its lat/long.
-func resolveEmployeeOutlet(ctx context.Context, queries *db.Queries, employeeID pgtype.UUID) (db.Outlet, error) {
+// check-in geofencing), returning its lat/long alongside the employee row
+// itself — callers that also need e.g. FullName for a broadcast payload can
+// reuse this instead of issuing a second GetEmployeeByID.
+func resolveEmployeeOutlet(ctx context.Context, queries *db.Queries, employeeID pgtype.UUID) (db.Outlet, db.Employee, error) {
 	employee, err := queries.GetEmployeeByID(ctx, employeeID)
 	if err != nil {
-		return db.Outlet{}, err
+		return db.Outlet{}, db.Employee{}, err
 	}
 	if !employee.OutletID.Valid {
-		return db.Outlet{}, pgx.ErrNoRows
+		return db.Outlet{}, db.Employee{}, pgx.ErrNoRows
 	}
-	return queries.GetOutletByID(ctx, employee.OutletID)
+	outlet, err := queries.GetOutletByID(ctx, employee.OutletID)
+	return outlet, employee, err
 }
 
 func toAttendanceResponse(a db.Attendance) AttendanceResponse {

@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -176,6 +177,17 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+ord.OutletID.String(), "bypass:created", gin.H{
+		"bypassID": created.ID.String(),
+		"orderID":  orderID.String(),
+		"station":  station,
+		"workerID": employeeID.String(),
+	})
+	sse.Default.Broadcast("user:"+employeeID.String(), "bypass:created", gin.H{
+		"bypassID": created.ID.String(),
+		"status":   "pending",
+	})
 
 	resp, err := h.toBypassResponse(created)
 	if err != nil {
@@ -382,6 +394,17 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	bypassEvent := "bypass:rejected"
+	if req.Approve {
+		bypassEvent = "bypass:approved"
+	}
+	sse.Default.Broadcast("user:"+reviewed.RequestedBy.String(), bypassEvent, gin.H{
+		"bypassID":      reviewed.ID.String(),
+		"orderID":       reviewed.OrderID.String(),
+		"invoiceNumber": ord.InvoiceNumber,
+		"adminNotes":    req.AdminNotes,
+	})
 
 	if req.Approve {
 		// CompleteStationAfterBypass: same optimistic-concurrency status

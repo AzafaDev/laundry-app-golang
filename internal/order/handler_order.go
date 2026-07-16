@@ -6,6 +6,7 @@ import (
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"log"
 	"net/http"
 	"strconv"
@@ -137,6 +138,13 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+outlet.ID.String(), "order:new-pickup-request", gin.H{
+		"orderID":       created.ID.String(),
+		"invoiceNumber": created.InvoiceNumber,
+		"pickupAddress": address.Address,
+		"timestamp":     time.Now(),
+	})
 
 	resp := toOrderResponse(created)
 	resp.Message = "order created successfully"
