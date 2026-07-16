@@ -11,10 +11,13 @@ import (
 )
 
 type Querier interface {
+	CountClothingTypes(ctx context.Context) (int64, error)
 	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
+	CountLaundryItems(ctx context.Context) (int64, error)
 	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOutlets(ctx context.Context) (int64, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
+	CreateClothingType(ctx context.Context, arg CreateClothingTypeParams) (ClothingType, error)
 	CreateComplaint(ctx context.Context, arg CreateComplaintParams) (Complaint, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
@@ -22,6 +25,7 @@ type Querier interface {
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
 	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
+	CreateLaundryItem(ctx context.Context, arg CreateLaundryItemParams) (LaundryItem, error)
 	CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderStatusHistory(ctx context.Context, arg CreateOrderStatusHistoryParams) (OrderStatusHistory, error)
@@ -32,6 +36,7 @@ type Querier interface {
 	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
 	DeleteUnusedEmployeePasswordResetTokens(ctx context.Context, employeeID pgtype.UUID) error
 	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
+	GetClothingTypeByID(ctx context.Context, id pgtype.UUID) (ClothingType, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
@@ -41,6 +46,8 @@ type Querier interface {
 	GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Employee, error)
 	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
 	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
+	GetLaundryItemByID(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
+	GetLaundryItemByIDAny(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
 	GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (Order, error)
 	GetOutletByID(ctx context.Context, id pgtype.UUID) (Outlet, error)
@@ -48,13 +55,17 @@ type Querier interface {
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
 	HardDeleteEmployee(ctx context.Context, id pgtype.UUID) error
+	HardDeleteLaundryItem(ctx context.Context, id pgtype.UUID) error
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
 	IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error)
+	ListActiveLaundryItems(ctx context.Context) ([]LaundryItem, error)
 	ListActiveOutlets(ctx context.Context) ([]Outlet, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
+	ListClothingTypes(ctx context.Context, arg ListClothingTypesParams) ([]ClothingType, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
 	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)
+	ListLaundryItems(ctx context.Context, arg ListLaundryItemsParams) ([]LaundryItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
@@ -67,10 +78,13 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
 	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error)
+	SoftDeleteClothingType(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteEmployee(ctx context.Context, id pgtype.UUID) error
+	SoftDeleteLaundryItem(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteOutlet(ctx context.Context, id pgtype.UUID) error
 	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
 	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error)
+	UpdateClothingType(ctx context.Context, arg UpdateClothingTypeParams) (ClothingType, error)
 	UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error)
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)
@@ -85,6 +99,7 @@ type Querier interface {
 	// deactivated employee can self-reactivate via ForgotPassword, which is
 	// intentionally generic and does not check is_active.
 	UpdateEmployeePassword(ctx context.Context, arg UpdateEmployeePasswordParams) (Employee, error)
+	UpdateLaundryItem(ctx context.Context, arg UpdateLaundryItemParams) (LaundryItem, error)
 	UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Outlet, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
 }

@@ -14,6 +14,15 @@ type City struct {
 	Name       string `json:"name"`
 }
 
+type ClothingType struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	IsActive  bool               `json:"is_active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type Complaint struct {
 	ID                     pgtype.UUID        `json:"id"`
 	OrderID                pgtype.UUID        `json:"order_id"`
@@ -117,6 +126,18 @@ type EmployeeRefreshToken struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type LaundryItem struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	Unit        string             `json:"unit"`
+	BasePrice   pgtype.Numeric     `json:"base_price"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type Order struct {
