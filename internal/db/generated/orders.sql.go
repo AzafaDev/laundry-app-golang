@@ -463,6 +463,84 @@ func (q *Queries) ProcessOrderIfCurrent(ctx context.Context, arg ProcessOrderIfC
 	return i, err
 }
 
+const salesReportByPeriod = `-- name: SalesReportByPeriod :many
+SELECT date_trunc($1::text, updated_at)::timestamptz AS period,
+       COALESCE(SUM(total_price), 0)::numeric AS income,
+       count(*) AS order_count
+FROM orders
+WHERE status = 'completed'
+  AND ($2::uuid IS NULL OR outlet_id = $2)
+  AND ($3::timestamptz IS NULL OR updated_at >= $3)
+  AND ($4::timestamptz IS NULL OR updated_at <= $4)
+GROUP BY period
+ORDER BY period
+`
+
+type SalesReportByPeriodParams struct {
+	GroupBy  string             `json:"group_by"`
+	OutletID pgtype.UUID        `json:"outlet_id"`
+	DateFrom pgtype.Timestamptz `json:"date_from"`
+	DateTo   pgtype.Timestamptz `json:"date_to"`
+}
+
+type SalesReportByPeriodRow struct {
+	Period     pgtype.Timestamptz `json:"period"`
+	Income     pgtype.Numeric     `json:"income"`
+	OrderCount int64              `json:"order_count"`
+}
+
+func (q *Queries) SalesReportByPeriod(ctx context.Context, arg SalesReportByPeriodParams) ([]SalesReportByPeriodRow, error) {
+	rows, err := q.db.Query(ctx, salesReportByPeriod,
+		arg.GroupBy,
+		arg.OutletID,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SalesReportByPeriodRow
+	for rows.Next() {
+		var i SalesReportByPeriodRow
+		if err := rows.Scan(&i.Period, &i.Income, &i.OrderCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const salesReportSummary = `-- name: SalesReportSummary :one
+SELECT COALESCE(SUM(total_price), 0)::numeric AS total_income, count(*) AS total_orders
+FROM orders
+WHERE status = 'completed'
+  AND ($1::uuid IS NULL OR outlet_id = $1)
+  AND ($2::timestamptz IS NULL OR updated_at >= $2)
+  AND ($3::timestamptz IS NULL OR updated_at <= $3)
+`
+
+type SalesReportSummaryParams struct {
+	OutletID pgtype.UUID        `json:"outlet_id"`
+	DateFrom pgtype.Timestamptz `json:"date_from"`
+	DateTo   pgtype.Timestamptz `json:"date_to"`
+}
+
+type SalesReportSummaryRow struct {
+	TotalIncome pgtype.Numeric `json:"total_income"`
+	TotalOrders int64          `json:"total_orders"`
+}
+
+func (q *Queries) SalesReportSummary(ctx context.Context, arg SalesReportSummaryParams) (SalesReportSummaryRow, error) {
+	row := q.db.QueryRow(ctx, salesReportSummary, arg.OutletID, arg.DateFrom, arg.DateTo)
+	var i SalesReportSummaryRow
+	err := row.Scan(&i.TotalIncome, &i.TotalOrders)
+	return i, err
+}
+
 const updateOrderStatusIfCurrent = `-- name: UpdateOrderStatusIfCurrent :one
 UPDATE orders
 SET status = $1, updated_at = now()

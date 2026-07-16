@@ -74,3 +74,23 @@ UPDATE orders
 SET status = $1, auto_confirm_at = COALESCE($2, auto_confirm_at), updated_at = now()
 WHERE id = $3 AND status = $4
 RETURNING *;
+
+-- name: SalesReportByPeriod :many
+SELECT date_trunc(sqlc.arg('group_by')::text, updated_at)::timestamptz AS period,
+       COALESCE(SUM(total_price), 0)::numeric AS income,
+       count(*) AS order_count
+FROM orders
+WHERE status = 'completed'
+  AND (sqlc.narg('outlet_id')::uuid IS NULL OR outlet_id = sqlc.narg('outlet_id'))
+  AND (sqlc.narg('date_from')::timestamptz IS NULL OR updated_at >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::timestamptz IS NULL OR updated_at <= sqlc.narg('date_to'))
+GROUP BY period
+ORDER BY period;
+
+-- name: SalesReportSummary :one
+SELECT COALESCE(SUM(total_price), 0)::numeric AS total_income, count(*) AS total_orders
+FROM orders
+WHERE status = 'completed'
+  AND (sqlc.narg('outlet_id')::uuid IS NULL OR outlet_id = sqlc.narg('outlet_id'))
+  AND (sqlc.narg('date_from')::timestamptz IS NULL OR updated_at >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::timestamptz IS NULL OR updated_at <= sqlc.narg('date_to'));

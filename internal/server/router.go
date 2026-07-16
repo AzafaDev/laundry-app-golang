@@ -14,6 +14,7 @@ import (
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/payment"
+	"laundry-app-with-golang/internal/report"
 	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
@@ -23,7 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, reportHandler *report.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -153,8 +154,15 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/admin/employees/:id/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.CreateEmployeeShift)
 	router.DELETE("/api/v1/employee/admin/employees/:id/shifts/:shiftRecordId", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.DeleteEmployeeShift)
 
-	router.GET("/api/v1/employee/admin/attendance/report", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.ListAttendanceReport)
+	router.GET("/api/v1/employee/admin/attendance/report", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), attendanceHandler.ListAttendanceReport)
+	router.GET("/api/v1/employee/admin/attendance/report/export", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), attendanceHandler.ExportAttendanceReport)
 	router.POST("/api/v1/employee/admin/attendance/sweep", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.TriggerSweep)
+
+	reportRoles := middleware.RequireRole("super_admin", "outlet_admin")
+	router.GET("/api/v1/employee/admin/reports/sales", employeeAuthMiddleware, reportRoles, reportHandler.GetSalesReport)
+	router.GET("/api/v1/employee/admin/reports/sales/export", employeeAuthMiddleware, reportRoles, reportHandler.ExportSalesReport)
+	router.GET("/api/v1/employee/admin/reports/employee-performance", employeeAuthMiddleware, reportRoles, reportHandler.GetEmployeePerformanceReport)
+	router.GET("/api/v1/employee/admin/reports/employee-performance/export", employeeAuthMiddleware, reportRoles, reportHandler.ExportEmployeePerformanceReport)
 
 	router.POST("/api/v1/employee/admin/cron/auto-complete-orders", employeeAuthMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerAutoCompleteOrders)
 	router.POST("/api/v1/employee/admin/cron/cleanup-tokens", employeeAuthMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerCleanupTokens)

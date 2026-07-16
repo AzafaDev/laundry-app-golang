@@ -80,6 +80,7 @@ type Querier interface {
 	DeleteExpiredOrUsedEmployeePasswordResetTokens(ctx context.Context) error
 	DeleteExpiredOrUsedPasswordResetTokens(ctx context.Context) error
 	DeleteUnusedEmployeePasswordResetTokens(ctx context.Context, employeeID pgtype.UUID) error
+	DriverPerformanceReport(ctx context.Context, arg DriverPerformanceReportParams) ([]DriverPerformanceReportRow, error)
 	GetActiveDriverTaskByDriver(ctx context.Context, driverID pgtype.UUID) (DriverTask, error)
 	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
 	// Unscoped by customer_id — used by staff-side flows (e.g. driver task
@@ -103,6 +104,7 @@ type Querier interface {
 	GetEmployeeShiftByEmployeeAndDate(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDateParams) (EmployeeShift, error)
 	GetEmployeeShiftByEmployeeAndDayOfWeek(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDayOfWeekParams) (EmployeeShift, error)
 	GetEmployeeShiftByID(ctx context.Context, arg GetEmployeeShiftByIDParams) (EmployeeShift, error)
+	GetEmployeesByIDs(ctx context.Context, ids []pgtype.UUID) ([]Employee, error)
 	GetLaundryItemByID(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetLaundryItemByIDAny(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
@@ -164,6 +166,8 @@ type Querier interface {
 	RevokeEmployeeRefreshTokensByEmployeeID(ctx context.Context, employeeID pgtype.UUID) error
 	RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error
 	RevokeRefreshTokensByCustomerID(ctx context.Context, customerID pgtype.UUID) error
+	SalesReportByPeriod(ctx context.Context, arg SalesReportByPeriodParams) ([]SalesReportByPeriodRow, error)
+	SalesReportSummary(ctx context.Context, arg SalesReportSummaryParams) (SalesReportSummaryRow, error)
 	SetAddressPrimary(ctx context.Context, arg SetAddressPrimaryParams) (SetAddressPrimaryRow, error)
 	SoftDeleteClothingType(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteEmployee(ctx context.Context, id pgtype.UUID) error
@@ -198,6 +202,12 @@ type Querier interface {
 	// transaction, orphaning the previous payment_link — not fixed here.
 	UpsertPaymentForOrder(ctx context.Context, arg UpsertPaymentForOrderParams) (Payment, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
+	// Approximates "jobs completed by worker" from order_status_histories.
+	// Known limitation: a bypass-approved station completion (ReviewBypassRequest)
+	// records changed_by_id as the approving admin, not the original worker —
+	// this is an accepted gap from deriving performance stats from a generic
+	// status-change log instead of a dedicated process_logs table (out of scope).
+	WorkerPerformanceReport(ctx context.Context, arg WorkerPerformanceReportParams) ([]WorkerPerformanceReportRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -108,6 +108,48 @@ func (q *Queries) CreateDriverTask(ctx context.Context, arg CreateDriverTaskPara
 	return i, err
 }
 
+const driverPerformanceReport = `-- name: DriverPerformanceReport :many
+SELECT dt.driver_id AS employee_id, count(*) AS total_jobs
+FROM driver_tasks dt
+JOIN employees e ON e.id = dt.driver_id
+WHERE dt.status = 'completed' AND dt.driver_id IS NOT NULL
+  AND ($1::uuid IS NULL OR e.outlet_id = $1)
+  AND ($2::timestamptz IS NULL OR dt.completed_at >= $2)
+  AND ($3::timestamptz IS NULL OR dt.completed_at <= $3)
+GROUP BY dt.driver_id
+`
+
+type DriverPerformanceReportParams struct {
+	OutletID pgtype.UUID        `json:"outlet_id"`
+	DateFrom pgtype.Timestamptz `json:"date_from"`
+	DateTo   pgtype.Timestamptz `json:"date_to"`
+}
+
+type DriverPerformanceReportRow struct {
+	EmployeeID pgtype.UUID `json:"employee_id"`
+	TotalJobs  int64       `json:"total_jobs"`
+}
+
+func (q *Queries) DriverPerformanceReport(ctx context.Context, arg DriverPerformanceReportParams) ([]DriverPerformanceReportRow, error) {
+	rows, err := q.db.Query(ctx, driverPerformanceReport, arg.OutletID, arg.DateFrom, arg.DateTo)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DriverPerformanceReportRow
+	for rows.Next() {
+		var i DriverPerformanceReportRow
+		if err := rows.Scan(&i.EmployeeID, &i.TotalJobs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getActiveDriverTaskByDriver = `-- name: GetActiveDriverTaskByDriver :one
 SELECT id, order_id, driver_id, task_type, status, taken_at, completed_at, created_at, updated_at FROM driver_tasks WHERE driver_id = $1 AND status = 'in_progress'
 `

@@ -2,9 +2,11 @@ package attendance
 
 import (
 	"context"
+	"fmt"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/shift"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +52,58 @@ func (h *Handler) ListAttendanceReport(c *gin.Context) {
 	c.JSON(http.StatusOK, AttendanceListResponse{Data: data, TotalCount: totalCount})
 }
 
+// exportAttendanceRowCap mirrors the TS source's exportAttendanceReport:
+// refuse to export more than this many rows in one go, asking the caller to
+// narrow their filter instead of silently truncating or streaming a huge
+// file.
+const exportAttendanceRowCap = 5000
+
+// ExportAttendanceReport is the CSV counterpart of ListAttendanceReport —
+// same query, same outlet-scoping, no BOM prefix (unlike sales/employee-
+// performance exports in internal/report, which do prepend one — replicated
+// from the TS source's distinction as-is, not standardized).
+func (h *Handler) ExportAttendanceReport(c *gin.Context) {
+	filter := reportFilterFromQuery(c)
+
+	logs, err := h.Queries.ListAttendanceReport(c.Request.Context(), db.ListAttendanceReportParams{
+		OutletID:   filter.outletID,
+		EmployeeID: filter.employeeID,
+		Status:     filter.status,
+		DateFrom:   filter.dateFrom,
+		DateTo:     filter.dateTo,
+		Limit:      exportAttendanceRowCap,
+		Offset:     0,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(logs) >= exportAttendanceRowCap {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "data terlalu besar, persempit filter"})
+		return
+	}
+
+	header := []string{"employee_id", "outlet_id", "date", "check_in_time", "check_out_time", "is_late", "late_minutes", "status"}
+	rows := make([][]string, 0, len(logs))
+	for _, a := range logs {
+		resp := toAttendanceResponse(a)
+		rows = append(rows, []string{
+			resp.EmployeeID,
+			resp.OutletID,
+			resp.Date,
+			resp.CheckInTime,
+			resp.CheckOutTime,
+			strconv.FormatBool(resp.IsLate),
+			strconv.Itoa(int(resp.LateMinutes)),
+			resp.Status,
+		})
+	}
+
+	filename := fmt.Sprintf("attendance_report_%s.csv", time.Now().Format("2006-01-02"))
+	writeCSV(c, filename, header, rows, false)
+}
+
 type reportFilter struct {
 	outletID   pgtype.UUID
 	employeeID pgtype.UUID
@@ -58,10 +112,20 @@ type reportFilter struct {
 	dateTo     pgtype.Date
 }
 
+// reportFilterFromQuery enforces outlet-scoping: outlet_admin is forced to
+// their own outlet (any ?outlet_id= is ignored — they cannot see other
+// outlets' attendance by guessing the param); super_admin may optionally
+// pass ?outlet_id= to filter, or leave it unscoped. Mirrors the pattern in
+// internal/order's complaintListFilter (ticket #7), copied rather than
+// imported since the two packages don't share this helper.
 func reportFilterFromQuery(c *gin.Context) reportFilter {
 	var f reportFilter
 
-	if v := c.Query("outlet_id"); v != "" {
+	if currentEmployeeRole(c) == "outlet_admin" {
+		if outletID, ok := currentEmployeeOutletID(c); ok {
+			f.outletID = outletID
+		}
+	} else if v := c.Query("outlet_id"); v != "" {
 		_ = f.outletID.Scan(v)
 	}
 	if v := c.Query("employee_id"); v != "" {

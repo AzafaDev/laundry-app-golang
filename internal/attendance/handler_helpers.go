@@ -107,6 +107,21 @@ func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
 	return employeeUUID, nil
 }
 
+func currentEmployeeRole(c *gin.Context) string {
+	val, _ := c.Get("role")
+	role, _ := val.(string)
+	return role
+}
+
+func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
+	val, exists := c.Get("outlet_id")
+	if !exists {
+		return outletID, false
+	}
+	outletID, ok = val.(pgtype.UUID)
+	return outletID, ok && outletID.Valid
+}
+
 // resolveEmployeeOutlet fetches the outlet assigned to an employee (for
 // check-in geofencing), returning its lat/long.
 func resolveEmployeeOutlet(ctx context.Context, queries *db.Queries, employeeID pgtype.UUID) (db.Outlet, error) {

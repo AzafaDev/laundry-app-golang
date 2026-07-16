@@ -28,6 +28,9 @@ WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
 -- name: GetEmployeeByIDAny :one
 SELECT * FROM employees WHERE id = $1;
 
+-- name: GetEmployeesByIDs :many
+SELECT * FROM employees WHERE id = ANY(sqlc.arg('ids')::uuid[]);
+
 -- name: ListEmployeesByOutletAndRole :many
 SELECT * FROM employees
 WHERE outlet_id = $1 AND role = ANY(sqlc.arg(roles)::text[]) AND is_active = true AND deleted_at IS NULL;

@@ -32,3 +32,13 @@ LIMIT $2 OFFSET $3;
 
 -- name: CountDriverTaskHistory :one
 SELECT count(*) FROM driver_tasks WHERE driver_id = $1 AND status = 'completed';
+
+-- name: DriverPerformanceReport :many
+SELECT dt.driver_id AS employee_id, count(*) AS total_jobs
+FROM driver_tasks dt
+JOIN employees e ON e.id = dt.driver_id
+WHERE dt.status = 'completed' AND dt.driver_id IS NOT NULL
+  AND (sqlc.narg('outlet_id')::uuid IS NULL OR e.outlet_id = sqlc.narg('outlet_id'))
+  AND (sqlc.narg('date_from')::timestamptz IS NULL OR dt.completed_at >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::timestamptz IS NULL OR dt.completed_at <= sqlc.narg('date_to'))
+GROUP BY dt.driver_id;

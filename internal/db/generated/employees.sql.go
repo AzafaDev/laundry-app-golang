@@ -149,6 +149,43 @@ func (q *Queries) GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Emplo
 	return i, err
 }
 
+const getEmployeesByIDs = `-- name: GetEmployeesByIDs :many
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees WHERE id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetEmployeesByIDs(ctx context.Context, ids []pgtype.UUID) ([]Employee, error) {
+	rows, err := q.db.Query(ctx, getEmployeesByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Employee
+	for rows.Next() {
+		var i Employee
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Email,
+			&i.Phone,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.TokenVersion,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OutletID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hardDeleteEmployee = `-- name: HardDeleteEmployee :exec
 DELETE FROM employees WHERE id = $1
 `
