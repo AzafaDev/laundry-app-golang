@@ -143,3 +143,21 @@ type DriverTaskListResponse struct {
 	Data       []DriverTaskResponse `json:"data"`
 	TotalCount int64                `json:"total_count"`
 }
+
+type ComplaintListResponse struct {
+	Data       []ComplaintResponse `json:"data"`
+	TotalCount int64               `json:"total_count"`
+}
+
+type ComplaintStatsResponse struct {
+	Open       int64 `json:"open"`
+	InProgress int64 `json:"in_progress"`
+	Resolved   int64 `json:"resolved"`
+	Rejected   int64 `json:"rejected"`
+}
+
+type UpdateComplaintStatusRequest struct {
+	Status                 string `json:"status" binding:"required"`
+	ResolutionNotes        string `json:"resolution_notes"`
+	ExpectedResolutionDate string `json:"expected_resolution_date"` // "YYYY-MM-DD"
+}

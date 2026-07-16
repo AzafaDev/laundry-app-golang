@@ -3,8 +3,10 @@ package order
 import (
 	"context"
 	"errors"
+	"fmt"
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
 	"math"
 	"net/http"
 	"time"
@@ -231,7 +233,14 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		return
 	}
 
-	// TODO(ticket-9): notify customer that their order has been claimed
+	claimTitle := "Driver dalam perjalanan"
+	claimBody := fmt.Sprintf("Driver sedang menuju lokasi penjemputan untuk pesanan %s.", updatedOrder.InvoiceNumber)
+	claimNotifType := notification.TypeDriverPickupStarted
+	if claimed.TaskType == "delivery" {
+		claimBody = fmt.Sprintf("Driver sedang mengantarkan pesanan %s ke lokasi Anda.", updatedOrder.InvoiceNumber)
+		claimNotifType = notification.TypeDriverDeliveryStarted
+	}
+	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updatedOrder.CustomerID, claimTitle, claimBody, claimNotifType, updatedOrder.ID)
 
 	resp, err := h.toDriverTaskResponse(c.Request.Context(), claimed, false)
 	if err != nil {
@@ -335,7 +344,11 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		return
 	}
 
-	// TODO(ticket-9): notify customer/next stage of task completion
+	completeTitle, completeBody, completeNotifType := "Driver telah tiba di outlet", "Laundry Anda telah tiba di outlet dan akan segera diproses.", notification.TypeDriverArrivedOutlet
+	if completed.TaskType == "delivery" {
+		completeTitle, completeBody, completeNotifType = "Driver telah tiba", "Driver telah tiba di lokasi Anda dengan pesanan laundry Anda.", notification.TypeDriverArrivedCustomer
+	}
+	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updatedOrder.CustomerID, completeTitle, completeBody, completeNotifType, updatedOrder.ID)
 
 	resp, err := h.toDriverTaskResponse(c.Request.Context(), completed, false)
 	if err != nil {

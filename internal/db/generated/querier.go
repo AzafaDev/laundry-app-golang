@@ -30,13 +30,19 @@ type Querier interface {
 	CountAttendancesByEmployee(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountBypassRequests(ctx context.Context, arg CountBypassRequestsParams) (int64, error)
 	CountClothingTypes(ctx context.Context) (int64, error)
+	CountComplaints(ctx context.Context, arg CountComplaintsParams) (int64, error)
+	CountComplaintsByStatus(ctx context.Context, outletID pgtype.UUID) ([]CountComplaintsByStatusRow, error)
+	CountCustomerNotifications(ctx context.Context, customerID pgtype.UUID) (int64, error)
 	CountDriverTaskHistory(ctx context.Context, driverID pgtype.UUID) (int64, error)
+	CountEmployeeNotifications(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
 	CountLaundryItems(ctx context.Context) (int64, error)
 	CountNonPendingBypassRequests(ctx context.Context, arg CountNonPendingBypassRequestsParams) (int64, error)
 	CountOrderItemsByOrder(ctx context.Context, orderID pgtype.UUID) (int64, error)
 	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOutlets(ctx context.Context) (int64, error)
+	CountUnreadCustomerNotifications(ctx context.Context, customerID pgtype.UUID) (int64, error)
+	CountUnreadEmployeeNotifications(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountWorkShifts(ctx context.Context) (int64, error)
 	CreateAbsentAttendance(ctx context.Context, arg CreateAbsentAttendanceParams) (Attendance, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
@@ -45,10 +51,12 @@ type Querier interface {
 	CreateClothingType(ctx context.Context, arg CreateClothingTypeParams) (ClothingType, error)
 	CreateComplaint(ctx context.Context, arg CreateComplaintParams) (Complaint, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	CreateCustomerNotification(ctx context.Context, arg CreateCustomerNotificationParams) (CustomerNotification, error)
 	CreateDriverTask(ctx context.Context, arg CreateDriverTaskParams) (DriverTask, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
+	CreateEmployeeNotification(ctx context.Context, arg CreateEmployeeNotificationParams) (EmployeeNotification, error)
 	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
 	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
 	CreateEmployeeShift(ctx context.Context, arg CreateEmployeeShiftParams) (EmployeeShift, error)
@@ -75,6 +83,7 @@ type Querier interface {
 	GetAttendanceByEmployeeAndDate(ctx context.Context, arg GetAttendanceByEmployeeAndDateParams) (Attendance, error)
 	GetBypassRequestByID(ctx context.Context, id pgtype.UUID) (BypassRequest, error)
 	GetClothingTypeByID(ctx context.Context, id pgtype.UUID) (ClothingType, error)
+	GetComplaintByID(ctx context.Context, id pgtype.UUID) (Complaint, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
 	GetDriverTaskByID(ctx context.Context, id pgtype.UUID) (DriverTask, error)
@@ -117,11 +126,15 @@ type Querier interface {
 	ListBypassRequestsByOrder(ctx context.Context, orderID pgtype.UUID) ([]BypassRequest, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListClothingTypes(ctx context.Context, arg ListClothingTypesParams) ([]ClothingType, error)
+	ListComplaints(ctx context.Context, arg ListComplaintsParams) ([]Complaint, error)
+	ListCustomerNotifications(ctx context.Context, arg ListCustomerNotificationsParams) ([]CustomerNotification, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
 	ListDriverTaskHistory(ctx context.Context, arg ListDriverTaskHistoryParams) ([]DriverTask, error)
+	ListEmployeeNotifications(ctx context.Context, arg ListEmployeeNotificationsParams) ([]EmployeeNotification, error)
 	ListEmployeeShiftsByEmployee(ctx context.Context, employeeID pgtype.UUID) ([]EmployeeShift, error)
 	ListEmployeeShiftsForDate(ctx context.Context, arg ListEmployeeShiftsForDateParams) ([]EmployeeShift, error)
 	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)
+	ListEmployeesByOutletAndRole(ctx context.Context, arg ListEmployeesByOutletAndRoleParams) ([]Employee, error)
 	ListLaundryItems(ctx context.Context, arg ListLaundryItemsParams) ([]LaundryItem, error)
 	ListOrderItemBreakdownsByOrder(ctx context.Context, orderID pgtype.UUID) ([]OrderItemBreakdown, error)
 	ListOrderItemsByOrder(ctx context.Context, orderID pgtype.UUID) ([]OrderItem, error)
@@ -130,8 +143,12 @@ type Querier interface {
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error)
+	MarkAllCustomerNotificationsRead(ctx context.Context, customerID pgtype.UUID) error
+	MarkAllEmployeeNotificationsRead(ctx context.Context, employeeID pgtype.UUID) error
+	MarkCustomerNotificationRead(ctx context.Context, arg MarkCustomerNotificationReadParams) error
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
+	MarkEmployeeNotificationRead(ctx context.Context, arg MarkEmployeeNotificationReadParams) error
 	MarkEmployeePasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkPasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
 	ProcessOrderIfCurrent(ctx context.Context, arg ProcessOrderIfCurrentParams) (Order, error)
@@ -149,6 +166,7 @@ type Querier interface {
 	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
 	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error)
 	UpdateClothingType(ctx context.Context, arg UpdateClothingTypeParams) (ClothingType, error)
+	UpdateComplaintStatus(ctx context.Context, arg UpdateComplaintStatusParams) (Complaint, error)
 	UpdateCustomerAvatar(ctx context.Context, arg UpdateCustomerAvatarParams) (Customer, error)
 	UpdateCustomerEmail(ctx context.Context, arg UpdateCustomerEmailParams) (Customer, error)
 	UpdateCustomerPassword(ctx context.Context, arg UpdateCustomerPasswordParams) (Customer, error)

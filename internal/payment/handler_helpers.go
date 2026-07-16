@@ -5,7 +5,9 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
 	"strconv"
 	"time"
 
@@ -118,6 +120,17 @@ func applyPaymentStatus(ctx context.Context, qtx *db.Queries, pay db.Payment, ne
 		return updatedPayment, nil
 	}
 
+	// Customer notification fires unconditionally whenever the payment is
+	// confirmed paid — not just when the order successfully transitions
+	// (mirrors the TS source, which notifies the customer outside the
+	// waiting_payment-only block).
+	ord, err := qtx.GetOrderByIDAny(ctx, pay.OrderID)
+	if err == nil {
+		_ = notification.NotifyCustomer(ctx, qtx, ord.CustomerID, "Pembayaran berhasil",
+			fmt.Sprintf("Pembayaran untuk pesanan %s telah berhasil dikonfirmasi.", ord.InvoiceNumber),
+			notification.TypePayment, ord.ID)
+	}
+
 	// Advance the order only if it's still waiting_payment. If it isn't
 	// (order hasn't reached that station yet), this is not an error — the
 	// packing-completion retrofit in internal/order will pick up the
@@ -153,6 +166,12 @@ func applyPaymentStatus(ctx context.Context, qtx *db.Queries, pay db.Payment, ne
 		Note:          pgtype.Text{String: "payment confirmed", Valid: true},
 	}); err != nil {
 		return db.Payment{}, err
+	}
+
+	if updatedOrder.OutletID.Valid {
+		_ = notification.NotifyOutletEmployees(ctx, qtx, updatedOrder.OutletID, []string{"outlet_admin", "driver"},
+			"Pembayaran berhasil", fmt.Sprintf("Pesanan %s telah dibayar oleh customer.", updatedOrder.InvoiceNumber),
+			notification.TypePaymentCompleted, updatedOrder.ID)
 	}
 
 	return updatedPayment, nil

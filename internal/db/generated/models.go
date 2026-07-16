@@ -106,6 +106,17 @@ type CustomerAddress struct {
 	DistrictID int32              `json:"district_id"`
 }
 
+type CustomerNotification struct {
+	ID              pgtype.UUID        `json:"id"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	Title           string             `json:"title"`
+	Body            string             `json:"body"`
+	Type            string             `json:"type"`
+	RelatedEntityID pgtype.UUID        `json:"related_entity_id"`
+	IsRead          bool               `json:"is_read"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type District struct {
 	ID     int32  `json:"id"`
 	CityID int32  `json:"city_id"`
@@ -156,6 +167,17 @@ type Employee struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	OutletID     pgtype.UUID        `json:"outlet_id"`
+}
+
+type EmployeeNotification struct {
+	ID              pgtype.UUID        `json:"id"`
+	EmployeeID      pgtype.UUID        `json:"employee_id"`
+	Title           string             `json:"title"`
+	Body            string             `json:"body"`
+	Type            string             `json:"type"`
+	RelatedEntityID pgtype.UUID        `json:"related_entity_id"`
+	IsRead          bool               `json:"is_read"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type EmployeePasswordResetToken struct {

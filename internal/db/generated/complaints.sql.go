@@ -11,6 +11,59 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countComplaints = `-- name: CountComplaints :one
+SELECT count(*) FROM complaints c
+JOIN orders o ON o.id = c.order_id
+WHERE ($1::uuid IS NULL OR o.outlet_id = $1)
+  AND ($2::text IS NULL OR c.status = $2)
+  AND ($3::text IS NULL OR o.invoice_number ILIKE '%' || $3 || '%')
+`
+
+type CountComplaintsParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	Status   pgtype.Text `json:"status"`
+	Search   pgtype.Text `json:"search"`
+}
+
+func (q *Queries) CountComplaints(ctx context.Context, arg CountComplaintsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countComplaints, arg.OutletID, arg.Status, arg.Search)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countComplaintsByStatus = `-- name: CountComplaintsByStatus :many
+SELECT c.status, count(*) AS total FROM complaints c
+JOIN orders o ON o.id = c.order_id
+WHERE $1::uuid IS NULL OR o.outlet_id = $1
+GROUP BY c.status
+`
+
+type CountComplaintsByStatusRow struct {
+	Status string `json:"status"`
+	Total  int64  `json:"total"`
+}
+
+func (q *Queries) CountComplaintsByStatus(ctx context.Context, outletID pgtype.UUID) ([]CountComplaintsByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countComplaintsByStatus, outletID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountComplaintsByStatusRow
+	for rows.Next() {
+		var i CountComplaintsByStatusRow
+		if err := rows.Scan(&i.Status, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createComplaint = `-- name: CreateComplaint :one
 INSERT INTO complaints (order_id, customer_id, complaint_type, description, photo_urls)
 VALUES ($1, $2, $3, $4, $5)
@@ -32,6 +85,138 @@ func (q *Queries) CreateComplaint(ctx context.Context, arg CreateComplaintParams
 		arg.ComplaintType,
 		arg.Description,
 		arg.PhotoUrls,
+	)
+	var i Complaint
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.CustomerID,
+		&i.ComplaintType,
+		&i.Description,
+		&i.PhotoUrls,
+		&i.Status,
+		&i.ExpectedResolutionDate,
+		&i.ResolvedBy,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getComplaintByID = `-- name: GetComplaintByID :one
+SELECT id, order_id, customer_id, complaint_type, description, photo_urls, status, expected_resolution_date, resolved_by, resolution_notes, resolved_at, created_at, updated_at FROM complaints WHERE id = $1
+`
+
+func (q *Queries) GetComplaintByID(ctx context.Context, id pgtype.UUID) (Complaint, error) {
+	row := q.db.QueryRow(ctx, getComplaintByID, id)
+	var i Complaint
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.CustomerID,
+		&i.ComplaintType,
+		&i.Description,
+		&i.PhotoUrls,
+		&i.Status,
+		&i.ExpectedResolutionDate,
+		&i.ResolvedBy,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listComplaints = `-- name: ListComplaints :many
+SELECT c.id, c.order_id, c.customer_id, c.complaint_type, c.description, c.photo_urls, c.status, c.expected_resolution_date, c.resolved_by, c.resolution_notes, c.resolved_at, c.created_at, c.updated_at FROM complaints c
+JOIN orders o ON o.id = c.order_id
+WHERE ($1::uuid IS NULL OR o.outlet_id = $1)
+  AND ($2::text IS NULL OR c.status = $2)
+  AND ($3::text IS NULL OR o.invoice_number ILIKE '%' || $3 || '%')
+ORDER BY c.created_at DESC
+LIMIT $5 OFFSET $4
+`
+
+type ListComplaintsParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	Status   pgtype.Text `json:"status"`
+	Search   pgtype.Text `json:"search"`
+	Offset   int32       `json:"offset"`
+	Limit    int32       `json:"limit"`
+}
+
+func (q *Queries) ListComplaints(ctx context.Context, arg ListComplaintsParams) ([]Complaint, error) {
+	rows, err := q.db.Query(ctx, listComplaints,
+		arg.OutletID,
+		arg.Status,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Complaint
+	for rows.Next() {
+		var i Complaint
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.CustomerID,
+			&i.ComplaintType,
+			&i.Description,
+			&i.PhotoUrls,
+			&i.Status,
+			&i.ExpectedResolutionDate,
+			&i.ResolvedBy,
+			&i.ResolutionNotes,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateComplaintStatus = `-- name: UpdateComplaintStatus :one
+UPDATE complaints
+SET status = $1,
+    resolution_notes = $2,
+    expected_resolution_date = $3,
+    resolved_by = $4,
+    resolved_at = $5,
+    updated_at = now()
+WHERE id = $6
+RETURNING id, order_id, customer_id, complaint_type, description, photo_urls, status, expected_resolution_date, resolved_by, resolution_notes, resolved_at, created_at, updated_at
+`
+
+type UpdateComplaintStatusParams struct {
+	Status                 string             `json:"status"`
+	ResolutionNotes        pgtype.Text        `json:"resolution_notes"`
+	ExpectedResolutionDate pgtype.Date        `json:"expected_resolution_date"`
+	ResolvedBy             pgtype.UUID        `json:"resolved_by"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	ID                     pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) UpdateComplaintStatus(ctx context.Context, arg UpdateComplaintStatusParams) (Complaint, error) {
+	row := q.db.QueryRow(ctx, updateComplaintStatus,
+		arg.Status,
+		arg.ResolutionNotes,
+		arg.ExpectedResolutionDate,
+		arg.ResolvedBy,
+		arg.ResolvedAt,
+		arg.ID,
 	)
 	var i Complaint
 	err := row.Scan(

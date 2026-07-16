@@ -9,6 +9,7 @@ import (
 	"laundry-app-with-golang/internal/employee"
 	"laundry-app-with-golang/internal/laundryitem"
 	"laundry-app-with-golang/internal/middleware"
+	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/payment"
@@ -21,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -76,6 +77,11 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/customer/orders/:id/payment/status", authMiddleware, paymentHandler.GetPaymentStatus)
 	router.POST("/api/v1/customer/orders/:id/payment/sync", authMiddleware, paymentHandler.SyncPaymentStatus)
 
+	router.GET("/api/v1/customer/notifications", authMiddleware, notificationHandler.ListCustomerNotifications)
+	router.GET("/api/v1/customer/notifications/unread-count", authMiddleware, notificationHandler.GetCustomerUnreadCount)
+	router.PATCH("/api/v1/customer/notifications/:id/read", authMiddleware, notificationHandler.MarkCustomerNotificationRead)
+	router.PATCH("/api/v1/customer/notifications/read-all", authMiddleware, notificationHandler.MarkAllCustomerNotificationsRead)
+
 	// Deliberately public — no authMiddleware. Midtrans calls this directly,
 	// no user session.
 	router.POST("/api/v1/payment/notification", paymentHandler.HandleWebhook)
@@ -98,6 +104,11 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/attendance/my-logs", employeeAuthMiddleware, attendanceHandler.MyAttendanceLogs)
 	router.GET("/api/v1/employee/attendance/today", employeeAuthMiddleware, attendanceHandler.TodayAttendance)
 	router.GET("/api/v1/employee/attendance/current-shift", employeeAuthMiddleware, attendanceHandler.CurrentShift)
+
+	router.GET("/api/v1/employee/notifications", employeeAuthMiddleware, notificationHandler.ListEmployeeNotifications)
+	router.GET("/api/v1/employee/notifications/unread-count", employeeAuthMiddleware, notificationHandler.GetEmployeeUnreadCount)
+	router.PATCH("/api/v1/employee/notifications/:id/read", employeeAuthMiddleware, notificationHandler.MarkEmployeeNotificationRead)
+	router.PATCH("/api/v1/employee/notifications/read-all", employeeAuthMiddleware, notificationHandler.MarkAllEmployeeNotificationsRead)
 
 	router.GET("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.ListEmployees)
 	router.GET("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.GetEmployeeByIDAdmin)
@@ -148,6 +159,12 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/admin/bypass-requests", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.ListBypassRequests)
 	router.GET("/api/v1/employee/admin/bypass-requests/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.GetBypassRequest)
 	router.PATCH("/api/v1/employee/admin/bypass-requests/:id/review", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ReviewBypassRequest)
+
+	adminComplaintRoles := middleware.RequireRole("super_admin", "outlet_admin")
+	router.GET("/api/v1/employee/admin/complaints", employeeAuthMiddleware, adminComplaintRoles, orderHandler.ListComplaints)
+	router.GET("/api/v1/employee/admin/complaints/stats", employeeAuthMiddleware, adminComplaintRoles, orderHandler.GetComplaintStats)
+	router.GET("/api/v1/employee/admin/complaints/:id", employeeAuthMiddleware, adminComplaintRoles, orderHandler.GetComplaintByID)
+	router.PATCH("/api/v1/employee/admin/complaints/:id/status", employeeAuthMiddleware, adminComplaintRoles, orderHandler.UpdateComplaintStatus)
 
 	workerRoles := middleware.RequireRole("washing_worker", "ironing_worker", "packing_worker")
 	router.GET("/api/v1/employee/worker/station/:station/orders", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrders)

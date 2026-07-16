@@ -2,8 +2,10 @@ package order
 
 import (
 	"errors"
+	"fmt"
 	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -241,7 +243,15 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		return
 	}
 
-	// TODO(ticket-9): notify customer that order has moved to washing
+	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID,
+		"Detail pesanan telah diinput",
+		fmt.Sprintf("Pesanan %s: laundry Rp%.0f + ongkir Rp%.0f = total Rp%.0f.",
+			updated.InvoiceNumber, totalPrice-numericToFloat64(updated.DeliveryFee), numericToFloat64(updated.DeliveryFee), totalPrice),
+		notification.TypeOrderDetails, updated.ID)
+	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID,
+		"Tagihan Pembayaran",
+		fmt.Sprintf("Pesanan %s perlu dibayar sebesar Rp%.0f.", updated.InvoiceNumber, totalPrice),
+		notification.TypePayment, updated.ID)
 
 	resp := toOrderResponse(updated)
 	resp.Message = "order processed successfully"

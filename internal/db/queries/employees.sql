@@ -28,6 +28,10 @@ WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
 -- name: GetEmployeeByIDAny :one
 SELECT * FROM employees WHERE id = $1;
 
+-- name: ListEmployeesByOutletAndRole :many
+SELECT * FROM employees
+WHERE outlet_id = $1 AND role = ANY(sqlc.arg(roles)::text[]) AND is_active = true AND deleted_at IS NULL;
+
 -- name: UpdateEmployee :one
 UPDATE employees
 SET full_name = $1, phone = $2, role = $3, updated_at = now()

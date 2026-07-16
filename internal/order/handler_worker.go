@@ -3,9 +3,11 @@ package order
 import (
 	"context"
 	"errors"
+	"fmt"
 	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -343,7 +345,20 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		return
 	}
 
-	// TODO(ticket-9): notify next station / customer of status change
+	// Customer-facing notification only fires when this completion resulted
+	// in waiting_payment or ready_for_delivery — which, per stationNextStatus,
+	// only ever happens at packing (washing/ironing produce other statuses).
+	// This mirrors the TS source's emitStationEvents exactly without needing
+	// a separate station==packing check.
+	if nextStatus == StatusWaitingPayment || nextStatus == StatusReadyForDelivery {
+		title, body := "Pembayaran Diperlukan", fmt.Sprintf("Pesanan %s sudah selesai diproses. Silakan lakukan pembayaran.", updated.InvoiceNumber)
+		if nextStatus == StatusReadyForDelivery {
+			title, body = "Pesanan Siap Dikirim", fmt.Sprintf("Pesanan %s sudah selesai dan siap untuk dikirim.", updated.InvoiceNumber)
+		}
+		_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID, title, body, notification.TypeOrderUpdate, updated.ID)
+		_ = notification.NotifyOutletEmployees(c.Request.Context(), h.Queries, updated.OutletID, []string{"outlet_admin"},
+			"Pesanan Selesai Diproses", fmt.Sprintf("Pesanan %s selesai di packing.", updated.InvoiceNumber), notification.TypeOrderUpdate, updated.ID)
+	}
 
 	resp := toOrderResponse(updated)
 	resp.Message = "station completed successfully"

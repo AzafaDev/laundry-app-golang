@@ -262,6 +262,49 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 	return items, nil
 }
 
+const listEmployeesByOutletAndRole = `-- name: ListEmployeesByOutletAndRole :many
+SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees
+WHERE outlet_id = $1 AND role = ANY($2::text[]) AND is_active = true AND deleted_at IS NULL
+`
+
+type ListEmployeesByOutletAndRoleParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	Roles    []string    `json:"roles"`
+}
+
+func (q *Queries) ListEmployeesByOutletAndRole(ctx context.Context, arg ListEmployeesByOutletAndRoleParams) ([]Employee, error) {
+	rows, err := q.db.Query(ctx, listEmployeesByOutletAndRole, arg.OutletID, arg.Roles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Employee
+	for rows.Next() {
+		var i Employee
+		if err := rows.Scan(
+			&i.ID,
+			&i.FullName,
+			&i.Email,
+			&i.Phone,
+			&i.PasswordHash,
+			&i.Role,
+			&i.IsActive,
+			&i.TokenVersion,
+			&i.DeletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OutletID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const softDeleteEmployee = `-- name: SoftDeleteEmployee :exec
 UPDATE employees SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL
 `
