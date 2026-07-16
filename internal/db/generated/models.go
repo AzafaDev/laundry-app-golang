@@ -27,6 +27,23 @@ type Attendance struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type BypassRequest struct {
+	ID                     pgtype.UUID        `json:"id"`
+	OrderID                pgtype.UUID        `json:"order_id"`
+	Station                string             `json:"station"`
+	RequestedBy            pgtype.UUID        `json:"requested_by"`
+	ExpectedItems          []byte             `json:"expected_items"`
+	ActualItems            []byte             `json:"actual_items"`
+	DiscrepancyDescription string             `json:"discrepancy_description"`
+	PhotoEvidence          []string           `json:"photo_evidence"`
+	AttemptNumber          int32              `json:"attempt_number"`
+	Status                 string             `json:"status"`
+	ReviewedBy             pgtype.UUID        `json:"reviewed_by"`
+	AdminNotes             pgtype.Text        `json:"admin_notes"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
 type City struct {
 	ID         int32  `json:"id"`
 	ProvinceID int32  `json:"province_id"`
@@ -183,6 +200,26 @@ type Order struct {
 	TotalPrice      pgtype.Numeric     `json:"total_price"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+}
+
+type OrderItem struct {
+	ID            pgtype.UUID        `json:"id"`
+	OrderID       pgtype.UUID        `json:"order_id"`
+	LaundryItemID pgtype.UUID        `json:"laundry_item_id"`
+	Quantity      pgtype.Numeric     `json:"quantity"`
+	PriceAtOrder  pgtype.Numeric     `json:"price_at_order"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrderItemBreakdown struct {
+	ID             pgtype.UUID        `json:"id"`
+	OrderID        pgtype.UUID        `json:"order_id"`
+	ClothingTypeID pgtype.UUID        `json:"clothing_type_id"`
+	Quantity       int32              `json:"quantity"`
+	CreatedBy      pgtype.UUID        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OrderStatusHistory struct {

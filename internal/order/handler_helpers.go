@@ -45,6 +45,46 @@ func currentCustomerID(c *gin.Context) (pgtype.UUID, error) {
 	return customerUUID, nil
 }
 
+// currentEmployeeID reads the "employee_id" set by EmployeeAuthMiddleware
+// and converts it into a pgtype.UUID.
+func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
+	var employeeUUID pgtype.UUID
+
+	employeeIDVal, ok := c.Get("employee_id")
+	if !ok {
+		return employeeUUID, errors.New("something went wrong")
+	}
+
+	employeeIDStr, ok := employeeIDVal.(string)
+	if !ok {
+		return employeeUUID, errors.New("something went wrong")
+	}
+
+	if err := employeeUUID.Scan(employeeIDStr); err != nil {
+		return employeeUUID, err
+	}
+
+	return employeeUUID, nil
+}
+
+// currentEmployeeOutletID reads the "outlet_id" set by EmployeeAuthMiddleware.
+// ok is false when the caller has no outlet assigned (e.g. super_admin).
+func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
+	val, exists := c.Get("outlet_id")
+	if !exists {
+		return outletID, false
+	}
+	outletID, ok = val.(pgtype.UUID)
+	return outletID, ok && outletID.Valid
+}
+
+// currentEmployeeRole reads the "role" set by EmployeeAuthMiddleware.
+func currentEmployeeRole(c *gin.Context) string {
+	val, _ := c.Get("role")
+	role, _ := val.(string)
+	return role
+}
+
 func numericToFloat64(n pgtype.Numeric) float64 {
 	f, _ := n.Float64Value()
 	return f.Float64

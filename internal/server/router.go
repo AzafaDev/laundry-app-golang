@@ -134,6 +134,19 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/admin/attendance/report", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.ListAttendanceReport)
 	router.POST("/api/v1/employee/admin/attendance/sweep", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.TriggerSweep)
 
+	router.POST("/api/v1/employee/admin/orders/:id/process", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ProcessOrder)
+
+	router.GET("/api/v1/employee/admin/bypass-requests", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.ListBypassRequests)
+	router.GET("/api/v1/employee/admin/bypass-requests/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.GetBypassRequest)
+	router.PATCH("/api/v1/employee/admin/bypass-requests/:id/review", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ReviewBypassRequest)
+
+	workerRoles := middleware.RequireRole("washing_worker", "ironing_worker", "packing_worker")
+	router.GET("/api/v1/employee/worker/station/:station/orders", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrders)
+	router.POST("/api/v1/employee/worker/station/:station/orders/:orderId/submit-items", employeeAuthMiddleware, workerRoles, orderHandler.SubmitItems)
+	router.PATCH("/api/v1/employee/worker/station/:station/orders/:orderId/complete", employeeAuthMiddleware, workerRoles, orderHandler.CompleteStation)
+	router.POST("/api/v1/employee/worker/bypass", employeeAuthMiddleware, workerRoles, orderHandler.CreateBypassRequest)
+	router.GET("/api/v1/employee/worker/orders/:orderId/bypass", employeeAuthMiddleware, workerRoles, orderHandler.GetBypassByOrder)
+
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
 	router.GET("/api/v1/wilayah/cities/:id/districts", wilayahHandler.ListDistrictsByCity)

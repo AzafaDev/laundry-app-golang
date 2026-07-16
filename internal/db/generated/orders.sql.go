@@ -44,7 +44,7 @@ func (q *Queries) CountOrders(ctx context.Context, arg CountOrdersParams) (int64
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
 `
 
 type CreateOrderParams struct {
@@ -82,6 +82,7 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.TotalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalWeightKg,
 	)
 	return i, err
 }
@@ -125,7 +126,7 @@ func (q *Queries) CreateOrderStatusHistory(ctx context.Context, arg CreateOrderS
 }
 
 const getOrderByID = `-- name: GetOrderByID :one
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
 WHERE id = $1 AND customer_id = $2
 `
 
@@ -149,12 +150,38 @@ func (q *Queries) GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (Ord
 		&i.TotalPrice,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalWeightKg,
+	)
+	return i, err
+}
+
+const getOrderByIDAny = `-- name: GetOrderByIDAny :one
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+WHERE id = $1
+`
+
+func (q *Queries) GetOrderByIDAny(ctx context.Context, id pgtype.UUID) (Order, error) {
+	row := q.db.QueryRow(ctx, getOrderByIDAny, id)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
 	)
 	return i, err
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
 WHERE customer_id = $1
   AND ($2::text IS NULL OR status = $2)
   AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
@@ -203,6 +230,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.TotalPrice,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalWeightKg,
 		); err != nil {
 			return nil, err
 		}
@@ -212,4 +240,122 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 		return nil, err
 	}
 	return items, nil
+}
+
+const listOrdersByOutletAndStatus = `-- name: ListOrdersByOutletAndStatus :many
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+WHERE outlet_id = $1 AND status = $2
+ORDER BY created_at ASC
+`
+
+type ListOrdersByOutletAndStatusParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	Status   string      `json:"status"`
+}
+
+func (q *Queries) ListOrdersByOutletAndStatus(ctx context.Context, arg ListOrdersByOutletAndStatusParams) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrdersByOutletAndStatus, arg.OutletID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Order
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceNumber,
+			&i.CustomerID,
+			&i.OutletID,
+			&i.PickupAddressID,
+			&i.Status,
+			&i.PickupDate,
+			&i.DeliveryFee,
+			&i.TotalPrice,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalWeightKg,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const processOrderIfCurrent = `-- name: ProcessOrderIfCurrent :one
+UPDATE orders
+SET status = $1, total_price = $2, total_weight_kg = $3, updated_at = now()
+WHERE id = $4 AND status = $5
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
+`
+
+type ProcessOrderIfCurrentParams struct {
+	Status        string         `json:"status"`
+	TotalPrice    pgtype.Numeric `json:"total_price"`
+	TotalWeightKg pgtype.Numeric `json:"total_weight_kg"`
+	ID            pgtype.UUID    `json:"id"`
+	Status_2      string         `json:"status_2"`
+}
+
+func (q *Queries) ProcessOrderIfCurrent(ctx context.Context, arg ProcessOrderIfCurrentParams) (Order, error) {
+	row := q.db.QueryRow(ctx, processOrderIfCurrent,
+		arg.Status,
+		arg.TotalPrice,
+		arg.TotalWeightKg,
+		arg.ID,
+		arg.Status_2,
+	)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+	)
+	return i, err
+}
+
+const updateOrderStatusIfCurrent = `-- name: UpdateOrderStatusIfCurrent :one
+UPDATE orders
+SET status = $1, updated_at = now()
+WHERE id = $2 AND status = $3
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
+`
+
+type UpdateOrderStatusIfCurrentParams struct {
+	Status   string      `json:"status"`
+	ID       pgtype.UUID `json:"id"`
+	Status_2 string      `json:"status_2"`
+}
+
+func (q *Queries) UpdateOrderStatusIfCurrent(ctx context.Context, arg UpdateOrderStatusIfCurrentParams) (Order, error) {
+	row := q.db.QueryRow(ctx, updateOrderStatusIfCurrent, arg.Status, arg.ID, arg.Status_2)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+	)
+	return i, err
 }

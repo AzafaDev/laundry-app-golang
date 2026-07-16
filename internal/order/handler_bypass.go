@@ -1,0 +1,430 @@
+package order
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/attendance"
+	db "laundry-app-with-golang/internal/db/generated"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+// buildNormalizedItems resolves clothing_type/laundry_item names for the
+// given quantity maps, producing the snapshot stored in bypass_requests'
+// JSONB columns.
+func (h *Handler) buildNormalizedItems(ctx context.Context, breakdown, satuan map[string]int32) ([]NormalizedItem, error) {
+	items := make([]NormalizedItem, 0, len(breakdown)+len(satuan))
+
+	for id, qty := range breakdown {
+		var ctID pgtype.UUID
+		if err := ctID.Scan(id); err != nil {
+			return nil, err
+		}
+		ct, err := h.Queries.GetClothingTypeByID(ctx, ctID)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, NormalizedItem{ItemType: "clothing_type", ItemID: id, Name: ct.Name, Quantity: qty})
+	}
+
+	for id, qty := range satuan {
+		var liID pgtype.UUID
+		if err := liID.Scan(id); err != nil {
+			return nil, err
+		}
+		li, err := h.Queries.GetLaundryItemByIDAny(ctx, liID)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, NormalizedItem{ItemType: "laundry_item", ItemID: id, Name: li.Name, Quantity: qty})
+	}
+
+	return items, nil
+}
+
+func actualItemMaps(req CreateBypassRequest) (breakdown, satuan map[string]int32) {
+	breakdown = map[string]int32{}
+	for _, a := range req.ActualItems {
+		breakdown[a.ClothingTypeID] = a.ActualQuantity
+	}
+	satuan = map[string]int32{}
+	for _, a := range req.ActualSatuanItems {
+		satuan[a.LaundryItemID] = a.ActualQuantity
+	}
+	return breakdown, satuan
+}
+
+func (h *Handler) CreateBypassRequest(c *gin.Context) {
+	employeeID, err := currentEmployeeID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	if _, err := attendance.AssertShiftEligibility(c.Request.Context(), h.Queries, employeeID); err != nil {
+		respondEligibilityError(c, err)
+		return
+	}
+
+	role := currentEmployeeRole(c)
+	station, ok := stationForRole[role]
+	if !ok {
+		apperr.RespondError(c, http.StatusForbidden, "station_access_denied")
+		return
+	}
+
+	var req CreateBypassRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var orderID pgtype.UUID
+	if err := orderID.Scan(req.OrderID); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_id")
+		return
+	}
+
+	ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), orderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "order_not_found")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if ord.Status != station {
+		apperr.RespondError(c, http.StatusUnprocessableEntity, "invalid_order_status")
+		return
+	}
+
+	if _, err := h.Queries.GetPendingBypassRequest(c.Request.Context(), db.GetPendingBypassRequestParams{
+		OrderID: orderID,
+		Station: station,
+	}); err == nil {
+		apperr.RespondError(c, http.StatusConflict, "bypass_already_pending")
+		return
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	previousCount, err := h.Queries.CountNonPendingBypassRequests(c.Request.Context(), db.CountNonPendingBypassRequestsParams{
+		OrderID: orderID,
+		Station: station,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if previousCount >= MaxBypassAttemptsPerStation {
+		apperr.RespondError(c, http.StatusBadRequest, "bypass_limit_reached")
+		return
+	}
+
+	expectedBreakdown, expectedSatuan, err := h.expectedItems(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	expectedNormalized, err := h.buildNormalizedItems(c.Request.Context(), expectedBreakdown, expectedSatuan)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	actualBreakdown, actualSatuan := actualItemMaps(req)
+	actualNormalized, err := h.buildNormalizedItems(c.Request.Context(), actualBreakdown, actualSatuan)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	expectedJSON, err := json.Marshal(expectedNormalized)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	actualJSON, err := json.Marshal(actualNormalized)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	photoEvidence := req.PhotoEvidence
+	if photoEvidence == nil {
+		photoEvidence = []string{}
+	}
+
+	created, err := h.Queries.CreateBypassRequest(c.Request.Context(), db.CreateBypassRequestParams{
+		OrderID:                orderID,
+		Station:                station,
+		RequestedBy:            employeeID,
+		ExpectedItems:          expectedJSON,
+		ActualItems:            actualJSON,
+		DiscrepancyDescription: req.DiscrepancyDescription,
+		PhotoEvidence:          photoEvidence,
+		AttemptNumber:          int32(previousCount) + 1,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.toBypassResponse(created)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	resp.Message = "bypass request submitted successfully"
+	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) GetBypassByOrder(c *gin.Context) {
+	employeeID, err := currentEmployeeID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	if _, err := attendance.AssertShiftEligibility(c.Request.Context(), h.Queries, employeeID); err != nil {
+		respondEligibilityError(c, err)
+		return
+	}
+
+	var orderID pgtype.UUID
+	if err := orderID.Scan(c.Param("orderId")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_id")
+		return
+	}
+
+	rows, err := h.Queries.ListBypassRequestsByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	data := make([]BypassResponse, 0, len(rows))
+	for _, row := range rows {
+		resp, err := h.toBypassResponse(row)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		data = append(data, resp)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
+// bypassListFilter resolves the caller-scoped filter for the two
+// admin-facing list endpoints: outlet_admin is scoped to their own outlet,
+// super_admin sees every outlet unfiltered.
+func bypassListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
+	if currentEmployeeRole(c) != "outlet_admin" {
+		return pgtype.UUID{}, false
+	}
+	outletID, ok := currentEmployeeOutletID(c)
+	return outletID, ok
+}
+
+func (h *Handler) ListBypassRequests(c *gin.Context) {
+	limit, offset := parsePagination(c)
+
+	outletID, scoped := bypassListFilter(c)
+	status := pgtype.Text{Valid: false}
+	if v := c.Query("status"); v != "" {
+		status = pgtype.Text{String: v, Valid: true}
+	}
+
+	outletFilter := pgtype.UUID{Valid: false}
+	if scoped {
+		outletFilter = outletID
+	}
+
+	rows, err := h.Queries.ListBypassRequests(c.Request.Context(), db.ListBypassRequestsParams{
+		OutletID: outletFilter,
+		Status:   status,
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	totalCount, err := h.Queries.CountBypassRequests(c.Request.Context(), db.CountBypassRequestsParams{
+		OutletID: outletFilter,
+		Status:   status,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	data := make([]BypassResponse, 0, len(rows))
+	for _, row := range rows {
+		resp, err := h.toBypassResponse(row)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		data = append(data, resp)
+	}
+
+	c.JSON(http.StatusOK, BypassListResponse{Data: data, TotalCount: totalCount})
+}
+
+func (h *Handler) GetBypassRequest(c *gin.Context) {
+	var bypassID pgtype.UUID
+	if err := bypassID.Scan(c.Param("id")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_bypass_id")
+		return
+	}
+
+	bypass, err := h.Queries.GetBypassRequestByID(c.Request.Context(), bypassID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "bypass_not_found")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if outletID, scoped := bypassListFilter(c); scoped {
+		ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), bypass.OrderID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if ord.OutletID != outletID {
+			apperr.RespondError(c, http.StatusNotFound, "bypass_not_found")
+			return
+		}
+	}
+
+	resp, err := h.toBypassResponse(bypass)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) ReviewBypassRequest(c *gin.Context) {
+	adminID, err := currentEmployeeID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	adminOutletID, hasOutlet := currentEmployeeOutletID(c)
+	if !hasOutlet {
+		apperr.RespondError(c, http.StatusForbidden, "no_outlet_assigned")
+		return
+	}
+
+	var bypassID pgtype.UUID
+	if err := bypassID.Scan(c.Param("id")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_bypass_id")
+		return
+	}
+
+	var req ReviewBypassRequestBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	bypass, err := h.Queries.GetBypassRequestByID(c.Request.Context(), bypassID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "bypass_not_found")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), bypass.OrderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if ord.OutletID != adminOutletID {
+		apperr.RespondError(c, http.StatusNotFound, "bypass_not_found")
+		return
+	}
+
+	newStatus := "rejected"
+	if req.Approve {
+		newStatus = "approved"
+	}
+
+	reviewed, err := h.Queries.ReviewBypassRequest(c.Request.Context(), db.ReviewBypassRequestParams{
+		Status:     newStatus,
+		ReviewedBy: adminID,
+		AdminNotes: pgtype.Text{String: req.AdminNotes, Valid: req.AdminNotes != ""},
+		ID:         bypassID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusConflict, "bypass_already_reviewed")
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Approve {
+		// CompleteStationAfterBypass: same optimistic-concurrency status
+		// transition as a normal station completion, but deliberately skips
+		// compareItems and the pending-bypass check — this IS the manual
+		// override those checks exist to gate.
+		h.completeStation(c, adminID, reviewed.Station, reviewed.OrderID)
+		return
+	}
+
+	resp, err := h.toBypassResponse(reviewed)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	resp.Message = "bypass request rejected"
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) toBypassResponse(b db.BypassRequest) (BypassResponse, error) {
+	var expected, actual []NormalizedItem
+	if err := json.Unmarshal(b.ExpectedItems, &expected); err != nil {
+		return BypassResponse{}, err
+	}
+	if err := json.Unmarshal(b.ActualItems, &actual); err != nil {
+		return BypassResponse{}, err
+	}
+
+	resp := BypassResponse{
+		ID:                     b.ID.String(),
+		OrderID:                b.OrderID.String(),
+		Station:                b.Station,
+		RequestedBy:            b.RequestedBy.String(),
+		ExpectedItems:          expected,
+		ActualItems:            actual,
+		DiscrepancyDescription: b.DiscrepancyDescription,
+		PhotoEvidence:          b.PhotoEvidence,
+		AttemptNumber:          b.AttemptNumber,
+		Status:                 b.Status,
+		AdminNotes:             b.AdminNotes.String,
+	}
+	if b.ReviewedBy.Valid {
+		resp.ReviewedBy = b.ReviewedBy.String()
+	}
+	return resp, nil
+}
