@@ -13,11 +13,24 @@ import (
 type Querier interface {
 	AutoCheckoutAttendance(ctx context.Context, arg AutoCheckoutAttendanceParams) error
 	CheckOutAttendance(ctx context.Context, arg CheckOutAttendanceParams) (Attendance, error)
+	ClaimDriverTaskIfAvailable(ctx context.Context, arg ClaimDriverTaskIfAvailableParams) (DriverTask, error)
+	// No status guard here — replicates the TS source's runClaimTransaction,
+	// which sets the order's status unconditionally once the driver_tasks
+	// optimistic-concurrency claim itself has already succeeded. $2 is NULL for
+	// delivery claims; COALESCE preserves the pickup_schedule set earlier by
+	// the pickup claim instead of clobbering it back to NULL.
+	ClaimOrderForTask(ctx context.Context, arg ClaimOrderForTaskParams) (Order, error)
+	CompleteDriverTaskIfInProgress(ctx context.Context, arg CompleteDriverTaskIfInProgressParams) (DriverTask, error)
+	// $2 is NULL for pickup completion; COALESCE avoids clobbering
+	// auto_confirm_at back to NULL on a later (delivery) completion that
+	// reuses this same query with a non-NULL value.
+	CompleteOrderForTaskIfCurrent(ctx context.Context, arg CompleteOrderForTaskIfCurrentParams) (Order, error)
 	CountActiveEmployeeShiftsByShiftID(ctx context.Context, shiftID pgtype.UUID) (int64, error)
 	CountAttendanceReport(ctx context.Context, arg CountAttendanceReportParams) (int64, error)
 	CountAttendancesByEmployee(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountBypassRequests(ctx context.Context, arg CountBypassRequestsParams) (int64, error)
 	CountClothingTypes(ctx context.Context) (int64, error)
+	CountDriverTaskHistory(ctx context.Context, driverID pgtype.UUID) (int64, error)
 	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
 	CountLaundryItems(ctx context.Context) (int64, error)
 	CountNonPendingBypassRequests(ctx context.Context, arg CountNonPendingBypassRequestsParams) (int64, error)
@@ -32,6 +45,7 @@ type Querier interface {
 	CreateClothingType(ctx context.Context, arg CreateClothingTypeParams) (ClothingType, error)
 	CreateComplaint(ctx context.Context, arg CreateComplaintParams) (Complaint, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	CreateDriverTask(ctx context.Context, arg CreateDriverTaskParams) (DriverTask, error)
 	CreateEmailChangeToken(ctx context.Context, arg CreateEmailChangeTokenParams) (EmailChangeToken, error)
 	CreateEmailVerificationToken(ctx context.Context, arg CreateEmailVerificationTokenParams) (EmailVerificationToken, error)
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
@@ -52,12 +66,18 @@ type Querier interface {
 	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
 	DeleteEmployeeShift(ctx context.Context, arg DeleteEmployeeShiftParams) error
 	DeleteUnusedEmployeePasswordResetTokens(ctx context.Context, employeeID pgtype.UUID) error
+	GetActiveDriverTaskByDriver(ctx context.Context, driverID pgtype.UUID) (DriverTask, error)
 	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
+	// Unscoped by customer_id — used by staff-side flows (e.g. driver task
+	// lists) that need an address's coordinates regardless of which customer
+	// owns it.
+	GetAddressByIDAny(ctx context.Context, id pgtype.UUID) (CustomerAddress, error)
 	GetAttendanceByEmployeeAndDate(ctx context.Context, arg GetAttendanceByEmployeeAndDateParams) (Attendance, error)
 	GetBypassRequestByID(ctx context.Context, id pgtype.UUID) (BypassRequest, error)
 	GetClothingTypeByID(ctx context.Context, id pgtype.UUID) (ClothingType, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
+	GetDriverTaskByID(ctx context.Context, id pgtype.UUID) (DriverTask, error)
 	GetEmailChangeTokenByHash(ctx context.Context, tokenHash string) (EmailChangeToken, error)
 	GetEmailVerificationByTokenHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error)
 	GetEmployeeByEmail(ctx context.Context, email string) (Employee, error)
@@ -90,11 +110,13 @@ type Querier interface {
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]Attendance, error)
 	ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]Attendance, error)
+	ListAvailableDriverTasksByType(ctx context.Context, taskType string) ([]DriverTask, error)
 	ListBypassRequests(ctx context.Context, arg ListBypassRequestsParams) ([]BypassRequest, error)
 	ListBypassRequestsByOrder(ctx context.Context, orderID pgtype.UUID) ([]BypassRequest, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListClothingTypes(ctx context.Context, arg ListClothingTypesParams) ([]ClothingType, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
+	ListDriverTaskHistory(ctx context.Context, arg ListDriverTaskHistoryParams) ([]DriverTask, error)
 	ListEmployeeShiftsByEmployee(ctx context.Context, employeeID pgtype.UUID) ([]EmployeeShift, error)
 	ListEmployeeShiftsForDate(ctx context.Context, arg ListEmployeeShiftsForDateParams) ([]EmployeeShift, error)
 	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)

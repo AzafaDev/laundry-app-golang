@@ -112,6 +112,18 @@ type District struct {
 	Name   string `json:"name"`
 }
 
+type DriverTask struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrderID     pgtype.UUID        `json:"order_id"`
+	DriverID    pgtype.UUID        `json:"driver_id"`
+	TaskType    string             `json:"task_type"`
+	Status      string             `json:"status"`
+	TakenAt     pgtype.Timestamptz `json:"taken_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type EmailChangeToken struct {
 	ID         pgtype.UUID        `json:"id"`
 	CustomerID pgtype.UUID        `json:"customer_id"`
@@ -201,6 +213,8 @@ type Order struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+	PickupSchedule  pgtype.Timestamptz `json:"pickup_schedule"`
+	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
 }
 
 type OrderItem struct {

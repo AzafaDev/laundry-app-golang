@@ -147,6 +147,14 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/worker/bypass", employeeAuthMiddleware, workerRoles, orderHandler.CreateBypassRequest)
 	router.GET("/api/v1/employee/worker/orders/:orderId/bypass", employeeAuthMiddleware, workerRoles, orderHandler.GetBypassByOrder)
 
+	driverRoles := middleware.RequireRole("driver")
+	router.GET("/api/v1/employee/driver/pickups/available", employeeAuthMiddleware, driverRoles, orderHandler.GetAvailablePickups)
+	router.GET("/api/v1/employee/driver/deliveries/available", employeeAuthMiddleware, driverRoles, orderHandler.GetAvailableDeliveries)
+	router.GET("/api/v1/employee/driver/tasks/active", employeeAuthMiddleware, driverRoles, orderHandler.GetActiveTask)
+	router.POST("/api/v1/employee/driver/tasks/:taskId/claim", employeeAuthMiddleware, driverRoles, orderHandler.ClaimTask)
+	router.PATCH("/api/v1/employee/driver/tasks/:taskId/complete", employeeAuthMiddleware, driverRoles, orderHandler.CompleteTask)
+	router.GET("/api/v1/employee/driver/tasks/history", employeeAuthMiddleware, driverRoles, orderHandler.GetTaskHistory)
+
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
 	router.GET("/api/v1/wilayah/cities/:id/districts", wilayahHandler.ListDistrictsByCity)

@@ -67,3 +67,10 @@ SELECT * FROM customer_addresses
 WHERE customer_id = $1
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- name: GetAddressByIDAny :one
+-- Unscoped by customer_id — used by staff-side flows (e.g. driver task
+-- lists) that need an address's coordinates regardless of which customer
+-- owns it.
+SELECT * FROM customer_addresses
+WHERE id = $1;

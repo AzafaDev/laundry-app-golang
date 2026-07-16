@@ -13,12 +13,16 @@ const (
 	FlatDeliveryFee = 10_000
 
 	StatusWaitingPickupDriver  = "waiting_pickup_driver"
+	StatusLaundryToOutlet      = "laundry_to_outlet"
 	StatusLaundryArrivedOutlet = "laundry_arrived_outlet"
 	StatusWashing              = "washing"
 	StatusIroning              = "ironing"
 	StatusPacking              = "packing"
 	StatusWaitingPayment       = "waiting_payment"
+	StatusReadyForDelivery     = "ready_for_delivery"
+	StatusDeliveryToCustomer   = "delivery_to_customer"
 	StatusReceivedByCustomer   = "received_by_customer"
+	StatusCompleted            = "completed"
 
 	invoiceNumberMaxAttempts = 5
 
@@ -44,4 +48,26 @@ var stationForRole = map[string]string{
 	"washing_worker": StatusWashing,
 	"ironing_worker": StatusIroning,
 	"packing_worker": StatusPacking,
+}
+
+// claimNextStatus/claimOldStatus and completeNextStatus/completeOldStatus
+// map a driver_tasks.task_type to the order status transition it drives.
+var claimNextStatus = map[string]string{
+	"pickup":   StatusLaundryToOutlet,
+	"delivery": StatusDeliveryToCustomer,
+}
+
+var claimOldStatus = map[string]string{
+	"pickup":   StatusWaitingPickupDriver,
+	"delivery": StatusReadyForDelivery,
+}
+
+var completeNextStatus = map[string]string{
+	"pickup":   StatusLaundryArrivedOutlet,
+	"delivery": StatusReceivedByCustomer,
+}
+
+var completeOldStatus = map[string]string{
+	"pickup":   StatusLaundryToOutlet,
+	"delivery": StatusDeliveryToCustomer,
 }

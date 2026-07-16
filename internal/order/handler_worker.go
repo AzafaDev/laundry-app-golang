@@ -16,11 +16,18 @@ import (
 // respondEligibilityError maps an AssertShiftEligibility error to its HTTP
 // status/code, or falls back to 500 for anything unexpected.
 func respondEligibilityError(c *gin.Context, err error) {
-	var elig *attendance.EligibilityError
-	if errors.As(err, &elig) {
-		apperr.RespondError(c, elig.Status, elig.Code)
+	var shiftElig *attendance.EligibilityError
+	if errors.As(err, &shiftElig) {
+		apperr.RespondError(c, shiftElig.Status, shiftElig.Code)
 		return
 	}
+
+	var driverElig *EligibilityError
+	if errors.As(err, &driverElig) {
+		apperr.RespondError(c, driverElig.Status, driverElig.Code)
+		return
+	}
+
 	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 }
 

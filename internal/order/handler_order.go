@@ -119,6 +119,17 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// Retrofit for ticket #4: a pickup driver_task must exist for every
+	// order or it can never leave waiting_pickup_driver. TS creates this in
+	// the same transaction as the order (order.create.service.ts:75).
+	if _, err := qtx.CreateDriverTask(c.Request.Context(), db.CreateDriverTaskParams{
+		OrderID:  created.ID,
+		TaskType: "pickup",
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	if err := tx.Commit(c.Request.Context()); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

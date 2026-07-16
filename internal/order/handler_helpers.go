@@ -4,17 +4,51 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
 	"math"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// EligibilityError is order package's own eligibility failure — distinct
+// from *attendance.EligibilityError because "driver already holds an
+// active task" is a driver_tasks-state reason, not a shift-eligibility
+// reason, even though both map to a 403 the same way.
+type EligibilityError struct {
+	Status int
+	Code   string
+}
+
+func (e *EligibilityError) Error() string {
+	return fmt.Sprintf("driver eligibility check failed: %s", e.Code)
+}
+
+// assertDriverEligibility layers a driver_tasks check on top of
+// attendance.AssertShiftEligibility: a driver may not hold more than one
+// in_progress task at a time.
+func assertDriverEligibility(ctx context.Context, queries *db.Queries, employeeID pgtype.UUID) (pgtype.UUID, error) {
+	outletID, err := attendance.AssertShiftEligibility(ctx, queries, employeeID)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+
+	if _, err := queries.GetActiveDriverTaskByDriver(ctx, employeeID); err == nil {
+		return pgtype.UUID{}, &EligibilityError{Status: http.StatusForbidden, Code: "driver_has_active_task"}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return pgtype.UUID{}, err
+	}
+
+	return outletID, nil
+}
 
 // isUniqueViolation reports whether err is a Postgres unique-constraint
 // violation (e.g. duplicate invoice number, duplicate complaint).

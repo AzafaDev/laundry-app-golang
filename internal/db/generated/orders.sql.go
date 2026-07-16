@@ -11,6 +11,90 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimOrderForTask = `-- name: ClaimOrderForTask :one
+UPDATE orders
+SET status = $1, pickup_schedule = COALESCE($2, pickup_schedule), updated_at = now()
+WHERE id = $3
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at
+`
+
+type ClaimOrderForTaskParams struct {
+	Status         string             `json:"status"`
+	PickupSchedule pgtype.Timestamptz `json:"pickup_schedule"`
+	ID             pgtype.UUID        `json:"id"`
+}
+
+// No status guard here — replicates the TS source's runClaimTransaction,
+// which sets the order's status unconditionally once the driver_tasks
+// optimistic-concurrency claim itself has already succeeded. $2 is NULL for
+// delivery claims; COALESCE preserves the pickup_schedule set earlier by
+// the pickup claim instead of clobbering it back to NULL.
+func (q *Queries) ClaimOrderForTask(ctx context.Context, arg ClaimOrderForTaskParams) (Order, error) {
+	row := q.db.QueryRow(ctx, claimOrderForTask, arg.Status, arg.PickupSchedule, arg.ID)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
+	)
+	return i, err
+}
+
+const completeOrderForTaskIfCurrent = `-- name: CompleteOrderForTaskIfCurrent :one
+UPDATE orders
+SET status = $1, auto_confirm_at = COALESCE($2, auto_confirm_at), updated_at = now()
+WHERE id = $3 AND status = $4
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at
+`
+
+type CompleteOrderForTaskIfCurrentParams struct {
+	Status        string             `json:"status"`
+	AutoConfirmAt pgtype.Timestamptz `json:"auto_confirm_at"`
+	ID            pgtype.UUID        `json:"id"`
+	Status_2      string             `json:"status_2"`
+}
+
+// $2 is NULL for pickup completion; COALESCE avoids clobbering
+// auto_confirm_at back to NULL on a later (delivery) completion that
+// reuses this same query with a non-NULL value.
+func (q *Queries) CompleteOrderForTaskIfCurrent(ctx context.Context, arg CompleteOrderForTaskIfCurrentParams) (Order, error) {
+	row := q.db.QueryRow(ctx, completeOrderForTaskIfCurrent,
+		arg.Status,
+		arg.AutoConfirmAt,
+		arg.ID,
+		arg.Status_2,
+	)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
+	)
+	return i, err
+}
+
 const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE customer_id = $1
@@ -44,7 +128,7 @@ func (q *Queries) CountOrders(ctx context.Context, arg CountOrdersParams) (int64
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at
 `
 
 type CreateOrderParams struct {
@@ -83,6 +167,8 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
 	)
 	return i, err
 }
@@ -126,7 +212,7 @@ func (q *Queries) CreateOrderStatusHistory(ctx context.Context, arg CreateOrderS
 }
 
 const getOrderByID = `-- name: GetOrderByID :one
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
 WHERE id = $1 AND customer_id = $2
 `
 
@@ -151,12 +237,14 @@ func (q *Queries) GetOrderByID(ctx context.Context, arg GetOrderByIDParams) (Ord
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
 	)
 	return i, err
 }
 
 const getOrderByIDAny = `-- name: GetOrderByIDAny :one
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
 WHERE id = $1
 `
 
@@ -176,12 +264,14 @@ func (q *Queries) GetOrderByIDAny(ctx context.Context, id pgtype.UUID) (Order, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
 	)
 	return i, err
 }
 
 const listOrders = `-- name: ListOrders :many
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
 WHERE customer_id = $1
   AND ($2::text IS NULL OR status = $2)
   AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
@@ -231,6 +321,8 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalWeightKg,
+			&i.PickupSchedule,
+			&i.AutoConfirmAt,
 		); err != nil {
 			return nil, err
 		}
@@ -243,7 +335,7 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 }
 
 const listOrdersByOutletAndStatus = `-- name: ListOrdersByOutletAndStatus :many
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg FROM orders
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
 WHERE outlet_id = $1 AND status = $2
 ORDER BY created_at ASC
 `
@@ -275,6 +367,8 @@ func (q *Queries) ListOrdersByOutletAndStatus(ctx context.Context, arg ListOrder
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TotalWeightKg,
+			&i.PickupSchedule,
+			&i.AutoConfirmAt,
 		); err != nil {
 			return nil, err
 		}
@@ -290,7 +384,7 @@ const processOrderIfCurrent = `-- name: ProcessOrderIfCurrent :one
 UPDATE orders
 SET status = $1, total_price = $2, total_weight_kg = $3, updated_at = now()
 WHERE id = $4 AND status = $5
-RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at
 `
 
 type ProcessOrderIfCurrentParams struct {
@@ -323,6 +417,8 @@ func (q *Queries) ProcessOrderIfCurrent(ctx context.Context, arg ProcessOrderIfC
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
 	)
 	return i, err
 }
@@ -331,7 +427,7 @@ const updateOrderStatusIfCurrent = `-- name: UpdateOrderStatusIfCurrent :one
 UPDATE orders
 SET status = $1, updated_at = now()
 WHERE id = $2 AND status = $3
-RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg
+RETURNING id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at
 `
 
 type UpdateOrderStatusIfCurrentParams struct {
@@ -356,6 +452,8 @@ func (q *Queries) UpdateOrderStatusIfCurrent(ctx context.Context, arg UpdateOrde
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
 	)
 	return i, err
 }

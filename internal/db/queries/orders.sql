@@ -50,3 +50,23 @@ RETURNING *;
 SELECT * FROM orders
 WHERE outlet_id = $1 AND status = $2
 ORDER BY created_at ASC;
+
+-- name: ClaimOrderForTask :one
+-- No status guard here — replicates the TS source's runClaimTransaction,
+-- which sets the order's status unconditionally once the driver_tasks
+-- optimistic-concurrency claim itself has already succeeded. $2 is NULL for
+-- delivery claims; COALESCE preserves the pickup_schedule set earlier by
+-- the pickup claim instead of clobbering it back to NULL.
+UPDATE orders
+SET status = $1, pickup_schedule = COALESCE($2, pickup_schedule), updated_at = now()
+WHERE id = $3
+RETURNING *;
+
+-- name: CompleteOrderForTaskIfCurrent :one
+-- $2 is NULL for pickup completion; COALESCE avoids clobbering
+-- auto_confirm_at back to NULL on a later (delivery) completion that
+-- reuses this same query with a non-NULL value.
+UPDATE orders
+SET status = $1, auto_confirm_at = COALESCE($2, auto_confirm_at), updated_at = now()
+WHERE id = $3 AND status = $4
+RETURNING *;

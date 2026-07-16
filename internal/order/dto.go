@@ -125,3 +125,21 @@ type ReviewBypassRequestBody struct {
 	Approve    bool   `json:"approve"`
 	AdminNotes string `json:"admin_notes"`
 }
+
+type DriverTaskResponse struct {
+	ID            string  `json:"id"`
+	OrderID       string  `json:"order_id"`
+	DriverID      string  `json:"driver_id,omitempty"`
+	TaskType      string  `json:"task_type"`
+	Status        string  `json:"status"`
+	InvoiceNumber string  `json:"invoice_number,omitempty"`
+	DistanceKM    float64 `json:"distance_km,omitempty"`
+	TakenAt       string  `json:"taken_at,omitempty"`
+	CompletedAt   string  `json:"completed_at,omitempty"`
+	Message       string  `json:"message,omitempty"`
+}
+
+type DriverTaskListResponse struct {
+	Data       []DriverTaskResponse `json:"data"`
+	TotalCount int64                `json:"total_count"`
+}

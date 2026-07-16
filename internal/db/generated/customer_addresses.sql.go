@@ -163,6 +163,35 @@ func (q *Queries) GetAddressByID(ctx context.Context, arg GetAddressByIDParams) 
 	return i, err
 }
 
+const getAddressByIDAny = `-- name: GetAddressByIDAny :one
+SELECT id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id FROM customer_addresses
+WHERE id = $1
+`
+
+// Unscoped by customer_id — used by staff-side flows (e.g. driver task
+// lists) that need an address's coordinates regardless of which customer
+// owns it.
+func (q *Queries) GetAddressByIDAny(ctx context.Context, id pgtype.UUID) (CustomerAddress, error) {
+	row := q.db.QueryRow(ctx, getAddressByIDAny, id)
+	var i CustomerAddress
+	err := row.Scan(
+		&i.ID,
+		&i.CustomerID,
+		&i.Label,
+		&i.Address,
+		&i.PostalCode,
+		&i.Latitude,
+		&i.Longitude,
+		&i.IsPrimary,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProvinceID,
+		&i.CityID,
+		&i.DistrictID,
+	)
+	return i, err
+}
+
 const getMostRecentAddress = `-- name: GetMostRecentAddress :one
 SELECT id, customer_id, label, address, postal_code, latitude, longitude, is_primary, created_at, updated_at, province_id, city_id, district_id FROM customer_addresses
 WHERE customer_id = $1
