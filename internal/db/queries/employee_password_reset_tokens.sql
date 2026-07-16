@@ -15,3 +15,6 @@ WHERE id = $1;
 -- name: DeleteUnusedEmployeePasswordResetTokens :exec
 DELETE FROM employee_password_reset_tokens
 WHERE employee_id = $1 AND used_at IS NULL;
+
+-- name: DeleteExpiredOrUsedEmployeePasswordResetTokens :exec
+DELETE FROM employee_password_reset_tokens WHERE expires_at < now() OR used_at IS NOT NULL;

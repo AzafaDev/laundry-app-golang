@@ -16,3 +16,6 @@ WHERE id = $1;
 UPDATE employee_refresh_tokens
 SET revoked_at = now()
 WHERE employee_id = $1;
+
+-- name: DeleteExpiredOrRevokedEmployeeRefreshTokens :exec
+DELETE FROM employee_refresh_tokens WHERE expires_at < now() OR revoked_at IS NOT NULL;

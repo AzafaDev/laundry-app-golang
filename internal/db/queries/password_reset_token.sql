@@ -11,3 +11,6 @@ WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();
 UPDATE password_reset_tokens
 SET used_at = now()
 WHERE id = $1;
+
+-- name: DeleteExpiredOrUsedPasswordResetTokens :exec
+DELETE FROM password_reset_tokens WHERE expires_at < now() OR used_at IS NOT NULL;

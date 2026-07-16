@@ -380,6 +380,46 @@ func (q *Queries) ListOrdersByOutletAndStatus(ctx context.Context, arg ListOrder
 	return items, nil
 }
 
+const listOrdersReadyForAutoComplete = `-- name: ListOrdersReadyForAutoComplete :many
+SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
+WHERE status = 'received_by_customer' AND auto_confirm_at IS NOT NULL AND auto_confirm_at <= now()
+`
+
+func (q *Queries) ListOrdersReadyForAutoComplete(ctx context.Context) ([]Order, error) {
+	rows, err := q.db.Query(ctx, listOrdersReadyForAutoComplete)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Order
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceNumber,
+			&i.CustomerID,
+			&i.OutletID,
+			&i.PickupAddressID,
+			&i.Status,
+			&i.PickupDate,
+			&i.DeliveryFee,
+			&i.TotalPrice,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalWeightKg,
+			&i.PickupSchedule,
+			&i.AutoConfirmAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const processOrderIfCurrent = `-- name: ProcessOrderIfCurrent :one
 UPDATE orders
 SET status = $1, total_price = $2, total_weight_kg = $3, updated_at = now()

@@ -37,6 +37,15 @@ func (q *Queries) CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmpl
 	return i, err
 }
 
+const deleteExpiredOrRevokedEmployeeRefreshTokens = `-- name: DeleteExpiredOrRevokedEmployeeRefreshTokens :exec
+DELETE FROM employee_refresh_tokens WHERE expires_at < now() OR revoked_at IS NOT NULL
+`
+
+func (q *Queries) DeleteExpiredOrRevokedEmployeeRefreshTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOrRevokedEmployeeRefreshTokens)
+	return err
+}
+
 const getEmployeeRefreshTokenByHash = `-- name: GetEmployeeRefreshTokenByHash :one
 SELECT id, employee_id, token_hash, expires_at, revoked_at, created_at FROM employee_refresh_tokens
 WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()

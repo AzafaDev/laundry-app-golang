@@ -4,6 +4,7 @@ import (
 	"laundry-app-with-golang/internal/attendance"
 	"laundry-app-with-golang/internal/clothingtype"
 	"laundry-app-with-golang/internal/config"
+	"laundry-app-with-golang/internal/cron"
 	"laundry-app-with-golang/internal/customer"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/employee"
@@ -22,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -153,6 +154,9 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.GET("/api/v1/employee/admin/attendance/report", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.ListAttendanceReport)
 	router.POST("/api/v1/employee/admin/attendance/sweep", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.TriggerSweep)
+
+	router.POST("/api/v1/employee/admin/cron/auto-complete-orders", employeeAuthMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerAutoCompleteOrders)
+	router.POST("/api/v1/employee/admin/cron/cleanup-tokens", employeeAuthMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerCleanupTokens)
 
 	router.POST("/api/v1/employee/admin/orders/:id/process", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ProcessOrder)
 

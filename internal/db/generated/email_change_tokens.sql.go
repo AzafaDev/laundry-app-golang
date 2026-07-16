@@ -44,6 +44,15 @@ func (q *Queries) CreateEmailChangeToken(ctx context.Context, arg CreateEmailCha
 	return i, err
 }
 
+const deleteExpiredOrUsedEmailChangeTokens = `-- name: DeleteExpiredOrUsedEmailChangeTokens :exec
+DELETE FROM email_change_tokens WHERE expires_at < now() OR used_at IS NOT NULL
+`
+
+func (q *Queries) DeleteExpiredOrUsedEmailChangeTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOrUsedEmailChangeTokens)
+	return err
+}
+
 const getEmailChangeTokenByHash = `-- name: GetEmailChangeTokenByHash :one
 SELECT id, customer_id, new_email, token_hash, expires_at, used_at, created_at FROM email_change_tokens
 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()

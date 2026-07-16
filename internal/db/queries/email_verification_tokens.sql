@@ -11,3 +11,6 @@ WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();
 UPDATE email_verification_tokens
 SET used_at = now()
 WHERE id = $1;
+
+-- name: DeleteExpiredOrUsedEmailVerificationTokens :exec
+DELETE FROM email_verification_tokens WHERE expires_at < now() OR used_at IS NOT NULL;

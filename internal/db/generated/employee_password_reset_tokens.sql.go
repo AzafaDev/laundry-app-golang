@@ -37,6 +37,15 @@ func (q *Queries) CreateEmployeePasswordResetToken(ctx context.Context, arg Crea
 	return i, err
 }
 
+const deleteExpiredOrUsedEmployeePasswordResetTokens = `-- name: DeleteExpiredOrUsedEmployeePasswordResetTokens :exec
+DELETE FROM employee_password_reset_tokens WHERE expires_at < now() OR used_at IS NOT NULL
+`
+
+func (q *Queries) DeleteExpiredOrUsedEmployeePasswordResetTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOrUsedEmployeePasswordResetTokens)
+	return err
+}
+
 const deleteUnusedEmployeePasswordResetTokens = `-- name: DeleteUnusedEmployeePasswordResetTokens :exec
 DELETE FROM employee_password_reset_tokens
 WHERE employee_id = $1 AND used_at IS NULL

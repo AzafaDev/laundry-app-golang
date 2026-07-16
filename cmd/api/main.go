@@ -5,6 +5,7 @@ import (
 	"laundry-app-with-golang/internal/attendance"
 	"laundry-app-with-golang/internal/clothingtype"
 	"laundry-app-with-golang/internal/config"
+	"laundry-app-with-golang/internal/cron"
 	"laundry-app-with-golang/internal/customer"
 	"laundry-app-with-golang/internal/database"
 	db "laundry-app-with-golang/internal/db/generated"
@@ -67,8 +68,11 @@ func main() {
 	attendanceHandler := attendance.NewHandler(pool, queries, cfg)
 	paymentHandler := payment.NewHandler(pool, queries, cfg)
 	notificationHandler := notification.NewHandler(pool, queries)
+	cronHandler := cron.NewHandler(pool, queries)
 
-	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, shiftHandler, attendanceHandler, paymentHandler, notificationHandler, cfg, queries)
+	cron.Start(ctx, pool, queries)
+
+	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, shiftHandler, attendanceHandler, paymentHandler, notificationHandler, cronHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

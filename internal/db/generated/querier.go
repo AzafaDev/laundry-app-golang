@@ -73,6 +73,12 @@ type Querier interface {
 	CreateWorkShift(ctx context.Context, arg CreateWorkShiftParams) (WorkShift, error)
 	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
 	DeleteEmployeeShift(ctx context.Context, arg DeleteEmployeeShiftParams) error
+	DeleteExpiredOrRevokedEmployeeRefreshTokens(ctx context.Context) error
+	DeleteExpiredOrRevokedRefreshTokens(ctx context.Context) error
+	DeleteExpiredOrUsedEmailChangeTokens(ctx context.Context) error
+	DeleteExpiredOrUsedEmailVerificationTokens(ctx context.Context) error
+	DeleteExpiredOrUsedEmployeePasswordResetTokens(ctx context.Context) error
+	DeleteExpiredOrUsedPasswordResetTokens(ctx context.Context) error
 	DeleteUnusedEmployeePasswordResetTokens(ctx context.Context, employeeID pgtype.UUID) error
 	GetActiveDriverTaskByDriver(ctx context.Context, driverID pgtype.UUID) (DriverTask, error)
 	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
@@ -140,6 +146,7 @@ type Querier interface {
 	ListOrderItemsByOrder(ctx context.Context, orderID pgtype.UUID) ([]OrderItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListOrdersByOutletAndStatus(ctx context.Context, arg ListOrdersByOutletAndStatusParams) ([]Order, error)
+	ListOrdersReadyForAutoComplete(ctx context.Context) ([]Order, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
 	ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error)

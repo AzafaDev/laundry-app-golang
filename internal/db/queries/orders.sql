@@ -51,6 +51,10 @@ SELECT * FROM orders
 WHERE outlet_id = $1 AND status = $2
 ORDER BY created_at ASC;
 
+-- name: ListOrdersReadyForAutoComplete :many
+SELECT * FROM orders
+WHERE status = 'received_by_customer' AND auto_confirm_at IS NOT NULL AND auto_confirm_at <= now();
+
 -- name: ClaimOrderForTask :one
 -- No status guard here — replicates the TS source's runClaimTransaction,
 -- which sets the order's status unconditionally once the driver_tasks
