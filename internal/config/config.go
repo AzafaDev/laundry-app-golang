@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -20,6 +21,8 @@ type Config struct {
 	GoogleClientSecret      string
 	FrontendURL             string
 	OpenCageAPIKey          string
+	CheckinRadiusMeters     int
+	LateThresholdMinutes    int
 }
 
 func Load() Config {
@@ -40,6 +43,8 @@ func Load() Config {
 		GoogleClientSecret:      mustGetEnv("GOOGLE_CLIENT_SECRET"),
 		FrontendURL:             getEnv("FRONTEND_URL", "http://localhost:3000"),
 		OpenCageAPIKey:          mustGetEnv("OPENCAGE_API_KEY"),
+		CheckinRadiusMeters:     getEnvInt("CHECKIN_RADIUS_METERS", 500),
+		LateThresholdMinutes:    getEnvInt("LATE_THRESHOLD_MINUTES", 30),
 	}
 }
 
@@ -48,6 +53,18 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+	return n
 }
 
 func mustGetEnv(key string) string {

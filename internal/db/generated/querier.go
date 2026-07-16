@@ -11,12 +11,20 @@ import (
 )
 
 type Querier interface {
+	AutoCheckoutAttendance(ctx context.Context, arg AutoCheckoutAttendanceParams) error
+	CheckOutAttendance(ctx context.Context, arg CheckOutAttendanceParams) (Attendance, error)
+	CountActiveEmployeeShiftsByShiftID(ctx context.Context, shiftID pgtype.UUID) (int64, error)
+	CountAttendanceReport(ctx context.Context, arg CountAttendanceReportParams) (int64, error)
+	CountAttendancesByEmployee(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountClothingTypes(ctx context.Context) (int64, error)
 	CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error)
 	CountLaundryItems(ctx context.Context) (int64, error)
 	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOutlets(ctx context.Context) (int64, error)
+	CountWorkShifts(ctx context.Context) (int64, error)
+	CreateAbsentAttendance(ctx context.Context, arg CreateAbsentAttendanceParams) (Attendance, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
+	CreateAttendance(ctx context.Context, arg CreateAttendanceParams) (Attendance, error)
 	CreateClothingType(ctx context.Context, arg CreateClothingTypeParams) (ClothingType, error)
 	CreateComplaint(ctx context.Context, arg CreateComplaintParams) (Complaint, error)
 	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
@@ -25,6 +33,7 @@ type Querier interface {
 	CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error)
 	CreateEmployeePasswordResetToken(ctx context.Context, arg CreateEmployeePasswordResetTokenParams) (EmployeePasswordResetToken, error)
 	CreateEmployeeRefreshToken(ctx context.Context, arg CreateEmployeeRefreshTokenParams) (EmployeeRefreshToken, error)
+	CreateEmployeeShift(ctx context.Context, arg CreateEmployeeShiftParams) (EmployeeShift, error)
 	CreateLaundryItem(ctx context.Context, arg CreateLaundryItemParams) (LaundryItem, error)
 	CreateOAuthCustomer(ctx context.Context, arg CreateOAuthCustomerParams) (Customer, error)
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
@@ -33,9 +42,12 @@ type Querier interface {
 	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateSocialAccount(ctx context.Context, arg CreateSocialAccountParams) (SocialAccount, error)
+	CreateWorkShift(ctx context.Context, arg CreateWorkShiftParams) (WorkShift, error)
 	DeleteAddress(ctx context.Context, arg DeleteAddressParams) error
+	DeleteEmployeeShift(ctx context.Context, arg DeleteEmployeeShiftParams) error
 	DeleteUnusedEmployeePasswordResetTokens(ctx context.Context, employeeID pgtype.UUID) error
 	GetAddressByID(ctx context.Context, arg GetAddressByIDParams) (GetAddressByIDRow, error)
+	GetAttendanceByEmployeeAndDate(ctx context.Context, arg GetAttendanceByEmployeeAndDateParams) (Attendance, error)
 	GetClothingTypeByID(ctx context.Context, id pgtype.UUID) (ClothingType, error)
 	GetCustomerByEmail(ctx context.Context, email string) (Customer, error)
 	GetCustomerByID(ctx context.Context, id pgtype.UUID) (Customer, error)
@@ -46,6 +58,9 @@ type Querier interface {
 	GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Employee, error)
 	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
 	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
+	GetEmployeeShiftByEmployeeAndDate(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDateParams) (EmployeeShift, error)
+	GetEmployeeShiftByEmployeeAndDayOfWeek(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDayOfWeekParams) (EmployeeShift, error)
+	GetEmployeeShiftByID(ctx context.Context, arg GetEmployeeShiftByIDParams) (EmployeeShift, error)
 	GetLaundryItemByID(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetLaundryItemByIDAny(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)
@@ -54,21 +69,29 @@ type Querier interface {
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetRefreshTokenByHash(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSocialAccountByProviderAndUID(ctx context.Context, arg GetSocialAccountByProviderAndUIDParams) (SocialAccount, error)
+	GetWorkShiftByID(ctx context.Context, id pgtype.UUID) (WorkShift, error)
+	GetWorkShiftByIDAny(ctx context.Context, id pgtype.UUID) (WorkShift, error)
 	HardDeleteEmployee(ctx context.Context, id pgtype.UUID) error
 	HardDeleteLaundryItem(ctx context.Context, id pgtype.UUID) error
+	HardDeleteWorkShift(ctx context.Context, id pgtype.UUID) error
 	IncrementCustomerTokenVersion(ctx context.Context, id pgtype.UUID) (Customer, error)
 	IncrementEmployeeTokenVersion(ctx context.Context, id pgtype.UUID) (Employee, error)
 	ListActiveLaundryItems(ctx context.Context) ([]LaundryItem, error)
 	ListActiveOutlets(ctx context.Context) ([]Outlet, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
+	ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]Attendance, error)
+	ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]Attendance, error)
 	ListCitiesByProvince(ctx context.Context, provinceID int32) ([]City, error)
 	ListClothingTypes(ctx context.Context, arg ListClothingTypesParams) ([]ClothingType, error)
 	ListDistrictsByCity(ctx context.Context, cityID int32) ([]District, error)
+	ListEmployeeShiftsByEmployee(ctx context.Context, employeeID pgtype.UUID) ([]EmployeeShift, error)
+	ListEmployeeShiftsForDate(ctx context.Context, arg ListEmployeeShiftsForDateParams) ([]EmployeeShift, error)
 	ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error)
 	ListLaundryItems(ctx context.Context, arg ListLaundryItemsParams) ([]LaundryItem, error)
 	ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
+	ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error)
 	MarkEmailChangeTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmailVerificationTokenUsed(ctx context.Context, id pgtype.UUID) error
 	MarkEmployeePasswordResetTokenUsed(ctx context.Context, id pgtype.UUID) error
@@ -82,6 +105,7 @@ type Querier interface {
 	SoftDeleteEmployee(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteLaundryItem(ctx context.Context, id pgtype.UUID) error
 	SoftDeleteOutlet(ctx context.Context, id pgtype.UUID) error
+	SoftDeleteWorkShift(ctx context.Context, id pgtype.UUID) error
 	UnsetPrimaryAddresses(ctx context.Context, customerID pgtype.UUID) error
 	UpdateAddress(ctx context.Context, arg UpdateAddressParams) (UpdateAddressRow, error)
 	UpdateClothingType(ctx context.Context, arg UpdateClothingTypeParams) (ClothingType, error)
@@ -101,6 +125,7 @@ type Querier interface {
 	UpdateEmployeePassword(ctx context.Context, arg UpdateEmployeePasswordParams) (Employee, error)
 	UpdateLaundryItem(ctx context.Context, arg UpdateLaundryItemParams) (LaundryItem, error)
 	UpdateOutlet(ctx context.Context, arg UpdateOutletParams) (Outlet, error)
+	UpdateWorkShift(ctx context.Context, arg UpdateWorkShiftParams) (WorkShift, error)
 	VerifyCustomerEmail(ctx context.Context, id pgtype.UUID) error
 }
 

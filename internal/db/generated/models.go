@@ -8,6 +8,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Attendance struct {
+	ID                pgtype.UUID        `json:"id"`
+	EmployeeID        pgtype.UUID        `json:"employee_id"`
+	OutletID          pgtype.UUID        `json:"outlet_id"`
+	Date              pgtype.Date        `json:"date"`
+	CheckInTime       pgtype.Timestamptz `json:"check_in_time"`
+	CheckInLatitude   pgtype.Numeric     `json:"check_in_latitude"`
+	CheckInLongitude  pgtype.Numeric     `json:"check_in_longitude"`
+	CheckOutTime      pgtype.Timestamptz `json:"check_out_time"`
+	CheckOutLatitude  pgtype.Numeric     `json:"check_out_latitude"`
+	CheckOutLongitude pgtype.Numeric     `json:"check_out_longitude"`
+	Notes             pgtype.Text        `json:"notes"`
+	IsLate            pgtype.Bool        `json:"is_late"`
+	LateMinutes       pgtype.Int4        `json:"late_minutes"`
+	Status            pgtype.Text        `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
 type City struct {
 	ID         int32  `json:"id"`
 	ProvinceID int32  `json:"province_id"`
@@ -128,6 +147,18 @@ type EmployeeRefreshToken struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type EmployeeShift struct {
+	ID         pgtype.UUID        `json:"id"`
+	EmployeeID pgtype.UUID        `json:"employee_id"`
+	ShiftID    pgtype.UUID        `json:"shift_id"`
+	OutletID   pgtype.UUID        `json:"outlet_id"`
+	DayOfWeek  pgtype.Int2        `json:"day_of_week"`
+	Date       pgtype.Date        `json:"date"`
+	IsActive   bool               `json:"is_active"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LaundryItem struct {
 	ID          pgtype.UUID        `json:"id"`
 	Name        string             `json:"name"`
@@ -207,4 +238,15 @@ type SocialAccount struct {
 	Provider    string             `json:"provider"`
 	ProviderUid string             `json:"provider_uid"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type WorkShift struct {
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	StartTime   pgtype.Time        `json:"start_time"`
+	EndTime     pgtype.Time        `json:"end_time"`
+	Description pgtype.Text        `json:"description"`
+	IsActive    bool               `json:"is_active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 }

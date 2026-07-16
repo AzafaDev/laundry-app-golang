@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"laundry-app-with-golang/internal/attendance"
 	"laundry-app-with-golang/internal/clothingtype"
 	"laundry-app-with-golang/internal/config"
 	"laundry-app-with-golang/internal/customer"
@@ -15,6 +16,7 @@ import (
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/server"
+	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/storage"
 	"laundry-app-with-golang/internal/wilayah"
 	"log"
@@ -49,8 +51,10 @@ func main() {
 	orderHandler := order.NewHandler(pool, queries)
 	laundryItemHandler := laundryitem.NewHandler(queries)
 	clothingTypeHandler := clothingtype.NewHandler(queries)
+	shiftHandler := shift.NewHandler(pool, queries)
+	attendanceHandler := attendance.NewHandler(pool, queries, cfg)
 
-	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, cfg, queries)
+	router := server.NewRouter(customerHandler, employeeHandler, wilayahHandler, outletHandler, orderHandler, laundryItemHandler, clothingTypeHandler, shiftHandler, attendanceHandler, cfg, queries)
 	port := ":" + cfg.Port
 
 	log.Println("connected to database successfully")

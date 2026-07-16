@@ -1,6 +1,7 @@
 package server
 
 import (
+	"laundry-app-with-golang/internal/attendance"
 	"laundry-app-with-golang/internal/clothingtype"
 	"laundry-app-with-golang/internal/config"
 	"laundry-app-with-golang/internal/customer"
@@ -10,6 +11,7 @@ import (
 	"laundry-app-with-golang/internal/middleware"
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
+	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/wilayah"
 	"net/http"
 	"time"
@@ -18,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
+func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
@@ -82,6 +84,12 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/profile", employeeAuthMiddleware, employeeHandler.Profile)
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, employeeHandler.ChangePassword)
 
+	router.POST("/api/v1/employee/attendance/check-in", employeeAuthMiddleware, attendanceHandler.CheckIn)
+	router.POST("/api/v1/employee/attendance/check-out", employeeAuthMiddleware, attendanceHandler.CheckOut)
+	router.GET("/api/v1/employee/attendance/my-logs", employeeAuthMiddleware, attendanceHandler.MyAttendanceLogs)
+	router.GET("/api/v1/employee/attendance/today", employeeAuthMiddleware, attendanceHandler.TodayAttendance)
+	router.GET("/api/v1/employee/attendance/current-shift", employeeAuthMiddleware, attendanceHandler.CurrentShift)
+
 	router.GET("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.ListEmployees)
 	router.GET("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.GetEmployeeByIDAdmin)
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
@@ -111,6 +119,20 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/admin/clothing-types", employeeAuthMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.CreateClothingType)
 	router.PATCH("/api/v1/employee/admin/clothing-types/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.UpdateClothingType)
 	router.DELETE("/api/v1/employee/admin/clothing-types/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.SoftDeleteClothingType)
+
+	router.GET("/api/v1/employee/admin/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.ListWorkShifts)
+	router.GET("/api/v1/employee/admin/shifts/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.GetWorkShiftByID)
+	router.POST("/api/v1/employee/admin/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.CreateWorkShift)
+	router.PATCH("/api/v1/employee/admin/shifts/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.UpdateWorkShift)
+	router.DELETE("/api/v1/employee/admin/shifts/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.SoftDeleteWorkShift)
+	router.DELETE("/api/v1/employee/admin/shifts/:id/permanent", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.HardDeleteWorkShift)
+
+	router.GET("/api/v1/employee/admin/employees/:id/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.ListEmployeeShifts)
+	router.POST("/api/v1/employee/admin/employees/:id/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.CreateEmployeeShift)
+	router.DELETE("/api/v1/employee/admin/employees/:id/shifts/:shiftRecordId", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.DeleteEmployeeShift)
+
+	router.GET("/api/v1/employee/admin/attendance/report", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.ListAttendanceReport)
+	router.POST("/api/v1/employee/admin/attendance/sweep", employeeAuthMiddleware, middleware.RequireRole("super_admin"), attendanceHandler.TriggerSweep)
 
 	router.GET("/api/v1/wilayah/provinces", wilayahHandler.ListProvinces)
 	router.GET("/api/v1/wilayah/provinces/:id/cities", wilayahHandler.ListCitiesByProvince)
