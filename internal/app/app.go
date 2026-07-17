@@ -66,7 +66,7 @@ func New(cfg config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	employeeHandler := employee.NewHandler(queries, pool, cfg, emailClient, geocodeClient)
 	wilayahHandler := wilayah.NewHandler(queries)
 	outletHandler := outlet.NewHandler(queries)
-	orderHandler := order.NewHandler(pool, queries)
+	orderHandler := order.NewHandler(pool, queries, storageClient)
 	laundryItemHandler := laundryitem.NewHandler(queries)
 	clothingTypeHandler := clothingtype.NewHandler(queries)
 	shiftHandler := shift.NewHandler(pool, queries)

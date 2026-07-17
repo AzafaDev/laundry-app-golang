@@ -7,6 +7,7 @@ import (
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/sse"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -27,9 +28,10 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		return
 	}
 
-	var req CreateComplaintRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	complaintType := strings.TrimSpace(c.PostForm("complaint_type"))
+	description := strings.TrimSpace(c.PostForm("description"))
+	if complaintType == "" || description == "" {
+		apperr.RespondError(c, http.StatusBadRequest, "complaint_type_and_description_required")
 		return
 	}
 
@@ -51,16 +53,50 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		return
 	}
 
-	if req.PhotoURLs == nil {
-		req.PhotoURLs = []string{}
+	photoURLs := []string{}
+	form, err := c.MultipartForm()
+	if err == nil && form != nil {
+		fileHeaders := form.File["photos"]
+		if len(fileHeaders) > maxComplaintPhotos {
+			apperr.RespondError(c, http.StatusBadRequest, "too_many_complaint_photos")
+			return
+		}
+
+		for _, fileHeader := range fileHeaders {
+			if fileHeader.Size > apphelper.MaxImageUploadSize {
+				apperr.RespondError(c, http.StatusBadRequest, "complaint_photo_too_large")
+				return
+			}
+
+			contentType := fileHeader.Header.Get("Content-Type")
+			if !apphelper.AllowedImageContentTypes[contentType] {
+				apperr.RespondError(c, http.StatusBadRequest, "complaint_photo_invalid_type")
+				return
+			}
+
+			file, err := fileHeader.Open()
+			if err != nil {
+				apperr.RespondInternalError(c, err)
+				return
+			}
+
+			photoURL, err := h.StorageClient.UploadComplaintPhoto(c.Request.Context(), file, c.Param("id"))
+			file.Close()
+			if err != nil {
+				apperr.RespondInternalError(c, err)
+				return
+			}
+
+			photoURLs = append(photoURLs, photoURL)
+		}
 	}
 
 	created, err := h.Queries.CreateComplaint(c.Request.Context(), db.CreateComplaintParams{
 		OrderID:       orderID,
 		CustomerID:    customerID,
-		ComplaintType: req.ComplaintType,
-		Description:   req.Description,
-		PhotoUrls:     req.PhotoURLs,
+		ComplaintType: complaintType,
+		Description:   description,
+		PhotoUrls:     photoURLs,
 	})
 	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "complaint_already_exists")

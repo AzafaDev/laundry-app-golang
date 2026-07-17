@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
+	"github.com/google/uuid"
 )
 
 type Client struct {
@@ -32,6 +33,24 @@ func (c *Client) UploadAvatar(ctx context.Context, file multipart.File, customer
 	})
 	if err != nil {
 		return "", fmt.Errorf("error in uploading avatar: %w", err)
+	}
+	if result.Error.Message != "" {
+		return "", fmt.Errorf("error in uploading avatar: %s", result.Error.Message)
+	}
+
+	return result.SecureURL, nil
+}
+
+func (c *Client) UploadComplaintPhoto(ctx context.Context, file multipart.File, orderID string) (string, error) {
+	result, err := c.cld.Upload.Upload(ctx, file, uploader.UploadParams{
+		PublicID: fmt.Sprintf("%s-%s", orderID, uuid.NewString()),
+		Folder:   "orders/complaints",
+	})
+	if err != nil {
+		return "", fmt.Errorf("error in uploading complaint photo: %w", err)
+	}
+	if result.Error.Message != "" {
+		return "", fmt.Errorf("error in uploading complaint photo: %s", result.Error.Message)
 	}
 
 	return result.SecureURL, nil

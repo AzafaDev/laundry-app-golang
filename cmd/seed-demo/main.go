@@ -39,6 +39,7 @@ type customerSeed struct {
 	phone    string
 	label    string
 	address  string
+	lat, lon float64
 }
 
 func main() {
@@ -60,6 +61,7 @@ func main() {
 	for _, o := range []outletSeed{
 		{"Laundry Kilat - Kemang", "Jl. Kemang Raya No. 10, Jakarta Selatan", -6.263300, 106.814400, 8},
 		{"Laundry Kilat - Sudirman", "Jl. Jend. Sudirman Kav. 25, Jakarta Pusat", -6.208200, 106.822400, 6},
+		{"Laundry Kilat - Curug", "Jl. Komp. Tataka Puri Blok J5 No.10, RT.3/RW.5, Kadu, Kec. Curug, Kabupaten Tangerang, Banten 15810", -6.229296504362473, 106.5674849964895, 8},
 	} {
 		id, err := ensureOutlet(ctx, pool, o)
 		if err != nil {
@@ -115,11 +117,15 @@ func main() {
 
 	customerIDs := map[string]string{} // email -> id
 	addressIDs := map[string]string{}  // email -> address id
+	// Addresses are staggered around the Curug outlet (-6.229296504362473,
+	// 106.5674849964895) to exercise different service-radius tiers:
+	// andi is inside it (<5km), maya is just past it (>5km), and
+	// bayu/rina sit well outside any outlet's radius (>10km).
 	for _, c := range []customerSeed{
-		{"Andi Saputra", "andi@demo.customer", "081211112222", "Rumah", "Jl. Melati No. 5, Jakarta Selatan"},
-		{"Maya Puspita", "maya@demo.customer", "081233334444", "Rumah", "Jl. Anggrek No. 12, Jakarta Selatan"},
-		{"Bayu Firmansyah", "bayu@demo.customer", "081255556666", "Kantor", "Jl. Mawar No. 8, Jakarta Pusat"},
-		{"Rina Marlina", "rina@demo.customer", "081277778888", "Rumah", "Jl. Kenanga No. 3, Jakarta Pusat"},
+		{"Andi Saputra", "andi@demo.customer", "081211112222", "Rumah", "Jl. Raya Curug, Binong, Kec. Curug, Kab. Tangerang, Banten", -6.2306, 106.6005},
+		{"Maya Puspita", "maya@demo.customer", "081233334444", "Rumah", "Jl. Raya Legok, Kec. Legok, Kab. Tangerang, Banten", -6.2450, 106.6200},
+		{"Bayu Firmansyah", "bayu@demo.customer", "081255556666", "Kantor", "Jl. Raya Serpong, BSD, Kec. Serpong, Tangerang Selatan, Banten", -6.3000, 106.6800},
+		{"Rina Marlina", "rina@demo.customer", "081277778888", "Rumah", "Jl. Gatot Subroto, Kec. Batuceper, Kota Tangerang, Banten", -6.1450, 106.4700},
 	} {
 		id, err := ensureCustomer(ctx, pool, c.fullName, c.email, hash, c.phone)
 		if err != nil {
@@ -128,7 +134,7 @@ func main() {
 		customerIDs[c.email] = id
 		log.Printf("customer ready: %s <%s>", c.fullName, c.email)
 
-		addrID, err := ensureCustomerAddress(ctx, pool, id, c.label, c.address, provinceID, cityID, districtID)
+		addrID, err := ensureCustomerAddress(ctx, pool, id, c.label, c.address, provinceID, cityID, districtID, c.lat, c.lon)
 		if err != nil {
 			log.Fatalf("failed to seed address for %q: %v", c.email, err)
 		}
@@ -275,7 +281,7 @@ func ensureCustomer(ctx context.Context, pool *pgxpool.Pool, fullName, email, pa
 	return id, err
 }
 
-func ensureCustomerAddress(ctx context.Context, pool *pgxpool.Pool, customerID, label, address string, provinceID, cityID, districtID int32) (string, error) {
+func ensureCustomerAddress(ctx context.Context, pool *pgxpool.Pool, customerID, label, address string, provinceID, cityID, districtID int32, lat, lon float64) (string, error) {
 	var id string
 	err := pool.QueryRow(ctx, "SELECT id FROM customer_addresses WHERE customer_id = $1 LIMIT 1", customerID).Scan(&id)
 	if err == nil {
@@ -285,13 +291,11 @@ func ensureCustomerAddress(ctx context.Context, pool *pgxpool.Pool, customerID, 
 		return "", err
 	}
 
-	// Same coordinates as the Kemang outlet — keeps every seeded order
-	// within its nearest-outlet radius without needing per-address tuning.
 	err = pool.QueryRow(ctx, `
 		INSERT INTO customer_addresses (customer_id, label, address, province_id, city_id, district_id, latitude, longitude, is_primary)
-		VALUES ($1, $2, $3, $4, $5, $6, -6.263300, 106.814400, TRUE)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
 		RETURNING id
-	`, customerID, label, address, provinceID, cityID, districtID).Scan(&id)
+	`, customerID, label, address, provinceID, cityID, districtID, lat, lon).Scan(&id)
 	return id, err
 }
 

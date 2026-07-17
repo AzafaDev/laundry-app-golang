@@ -50,7 +50,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.FrontendURL},
 		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type"},
+		AllowHeaders:     []string{"Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))

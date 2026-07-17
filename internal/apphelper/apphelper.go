@@ -13,6 +13,14 @@ import (
 
 var ErrNoSession = errors.New("something went wrong")
 
+const MaxImageUploadSize = 2 << 20 // 2MB
+
+var AllowedImageContentTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/webp": true,
+}
+
 // IsUniqueViolation reports whether err is a Postgres unique-constraint
 // violation.
 func IsUniqueViolation(err error) bool {

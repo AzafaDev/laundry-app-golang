@@ -73,6 +73,8 @@ type CreateComplaintRequest struct {
 	PhotoURLs     []string `json:"photo_urls"`
 }
 
+const maxComplaintPhotos = 5
+
 type ComplaintResponse struct {
 	ID            string   `json:"id"`
 	OrderID       string   `json:"order_id"`

@@ -14,14 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const maxAvatarSize = 2 << 20 // 2MB
-
-var allowedAvatarContentTypes = map[string]bool{
-	"image/jpeg": true,
-	"image/png":  true,
-	"image/webp": true,
-}
-
 func (h *Handler) Me(c *gin.Context) {
 	customerID, _ := c.Get("customer_id")
 	c.JSON(http.StatusOK, gin.H{"customer_id": customerID})
@@ -314,13 +306,13 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	if fileHeader.Size > maxAvatarSize {
+	if fileHeader.Size > apphelper.MaxImageUploadSize {
 		apperr.RespondError(c, http.StatusBadRequest, "avatar_too_large")
 		return
 	}
 
 	contentType := fileHeader.Header.Get("Content-Type")
-	if !allowedAvatarContentTypes[contentType] {
+	if !apphelper.AllowedImageContentTypes[contentType] {
 		apperr.RespondError(c, http.StatusBadRequest, "avatar_invalid_type")
 		return
 	}
