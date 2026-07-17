@@ -11,6 +11,41 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const listOrderStatusHistoriesByOrder = `-- name: ListOrderStatusHistoriesByOrder :many
+SELECT id, order_id, old_status, new_status, changed_by_type, changed_by_id, note, created_at FROM order_status_histories
+WHERE order_id = $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListOrderStatusHistoriesByOrder(ctx context.Context, orderID pgtype.UUID) ([]OrderStatusHistory, error) {
+	rows, err := q.db.Query(ctx, listOrderStatusHistoriesByOrder, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OrderStatusHistory
+	for rows.Next() {
+		var i OrderStatusHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.OldStatus,
+			&i.NewStatus,
+			&i.ChangedByType,
+			&i.ChangedByID,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const workerPerformanceReport = `-- name: WorkerPerformanceReport :many
 SELECT osh.changed_by_id AS employee_id, count(*) AS total_jobs
 FROM order_status_histories osh

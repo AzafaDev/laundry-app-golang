@@ -1,5 +1,7 @@
 package order
 
+import "laundry-app-with-golang/internal/payment"
+
 type CreateOrderRequest struct {
 	PickupAddressID string `json:"pickup_address_id" binding:"required"`
 	PickupDate      string `json:"pickup_date" binding:"required"` // YYYY-MM-DD
@@ -9,6 +11,8 @@ type OrderResponse struct {
 	ID              string  `json:"id"`
 	InvoiceNumber   string  `json:"invoice_number"`
 	OutletID        string  `json:"outlet_id"`
+	OutletName      string  `json:"outlet_name,omitempty"`
+	OutletAddress   string  `json:"outlet_address,omitempty"`
 	PickupAddressID string  `json:"pickup_address_id"`
 	Status          string  `json:"status"`
 	PickupDate      string  `json:"pickup_date"`
@@ -21,6 +25,46 @@ type OrderResponse struct {
 type OrderListResponse struct {
 	Data       []OrderResponse `json:"data"`
 	TotalCount int64           `json:"total_count"`
+}
+
+type OrderItemResponse struct {
+	ID            string  `json:"id"`
+	LaundryItemID string  `json:"laundry_item_id"`
+	Quantity      float64 `json:"quantity"`
+	PriceAtOrder  float64 `json:"price_at_order"`
+}
+
+type BreakdownResponse struct {
+	ID             string `json:"id"`
+	ClothingTypeID string `json:"clothing_type_id"`
+	Quantity       int32  `json:"quantity"`
+}
+
+type StatusHistoryResponse struct {
+	ID            string `json:"id"`
+	OldStatus     string `json:"old_status,omitempty"`
+	NewStatus     string `json:"new_status"`
+	ChangedByType string `json:"changed_by_type"`
+	ChangedByID   string `json:"changed_by_id"`
+	Note          string `json:"note,omitempty"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type ComplaintSummary struct {
+	ID            string `json:"id"`
+	ComplaintType string `json:"complaint_type"`
+	Description   string `json:"description"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type OrderDetailResponse struct {
+	OrderResponse
+	Items         []OrderItemResponse      `json:"items"`
+	Breakdown     []BreakdownResponse      `json:"breakdown"`
+	StatusHistory []StatusHistoryResponse  `json:"status_history"`
+	Payment       *payment.PaymentResponse `json:"payment,omitempty"`
+	Complaints    []ComplaintSummary       `json:"complaints"`
 }
 
 type CreateComplaintRequest struct {

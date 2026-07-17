@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/payment"
 	"laundry-app-with-golang/internal/sse"
 	"log"
 	"net/http"
@@ -212,10 +213,121 @@ func (h *Handler) ListOrders(c *gin.Context) {
 
 	data := make([]OrderResponse, 0, len(orders))
 	for _, o := range orders {
-		data = append(data, toOrderResponse(o))
+		data = append(data, toOrderResponseFromListRow(o))
 	}
 
 	c.JSON(http.StatusOK, OrderListResponse{Data: data, TotalCount: totalCount})
+}
+
+// GetOrderDetail returns a single order enriched with outlet info, items,
+// breakdown, status history, payment (if any), and complaints, for the
+// customer order detail page.
+func (h *Handler) GetOrderDetail(c *gin.Context) {
+	customerID, err := apphelper.CurrentCustomerID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	var orderID pgtype.UUID
+	if err := orderID.Scan(c.Param("id")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_id")
+		return
+	}
+
+	ord, err := h.Queries.GetOrderByIDWithOutlet(c.Request.Context(), db.GetOrderByIDWithOutletParams{
+		ID:         orderID,
+		CustomerID: customerID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "order_not_found")
+		return
+	}
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	items, err := h.Queries.ListOrderItemsByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	breakdown, err := h.Queries.ListOrderItemBreakdownsByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	statusHistory, err := h.Queries.ListOrderStatusHistoriesByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	complaints, err := h.Queries.ListComplaintsByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	var paymentResp *payment.PaymentResponse
+	pay, err := h.Queries.GetPaymentByOrderID(c.Request.Context(), orderID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	if err == nil {
+		p := toPaymentResponse(pay)
+		paymentResp = &p
+	}
+
+	resp := OrderDetailResponse{
+		OrderResponse: toOrderResponseFromDetailRow(ord),
+		Items:         make([]OrderItemResponse, 0, len(items)),
+		Breakdown:     make([]BreakdownResponse, 0, len(breakdown)),
+		StatusHistory: make([]StatusHistoryResponse, 0, len(statusHistory)),
+		Payment:       paymentResp,
+		Complaints:    make([]ComplaintSummary, 0, len(complaints)),
+	}
+	for _, it := range items {
+		resp.Items = append(resp.Items, OrderItemResponse{
+			ID:            it.ID.String(),
+			LaundryItemID: it.LaundryItemID.String(),
+			Quantity:      apphelper.NumericToFloat64(it.Quantity),
+			PriceAtOrder:  apphelper.NumericToFloat64(it.PriceAtOrder),
+		})
+	}
+	for _, b := range breakdown {
+		resp.Breakdown = append(resp.Breakdown, BreakdownResponse{
+			ID:             b.ID.String(),
+			ClothingTypeID: b.ClothingTypeID.String(),
+			Quantity:       b.Quantity,
+		})
+	}
+	for _, sh := range statusHistory {
+		resp.StatusHistory = append(resp.StatusHistory, StatusHistoryResponse{
+			ID:            sh.ID.String(),
+			OldStatus:     sh.OldStatus.String,
+			NewStatus:     sh.NewStatus,
+			ChangedByType: sh.ChangedByType,
+			ChangedByID:   sh.ChangedByID.String(),
+			Note:          sh.Note.String,
+			CreatedAt:     sh.CreatedAt.Time.Format(time.RFC3339),
+		})
+	}
+	for _, cp := range complaints {
+		resp.Complaints = append(resp.Complaints, ComplaintSummary{
+			ID:            cp.ID.String(),
+			ComplaintType: cp.ComplaintType,
+			Description:   cp.Description,
+			Status:        cp.Status,
+			CreatedAt:     cp.CreatedAt.Time.Format(time.RFC3339),
+		})
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 // CompleteOrder lets a customer manually confirm "order received and done"
@@ -326,4 +438,60 @@ func toOrderResponse(o db.Order) OrderResponse {
 		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
 	}
+}
+
+func toOrderResponseFromListRow(o db.ListOrdersRow) OrderResponse {
+	return OrderResponse{
+		ID:              o.ID.String(),
+		InvoiceNumber:   o.InvoiceNumber,
+		OutletID:        o.OutletID.String(),
+		OutletName:      o.OutletName.String,
+		OutletAddress:   o.OutletAddress.String,
+		PickupAddressID: o.PickupAddressID.String(),
+		Status:          o.Status,
+		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
+		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
+		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
+	}
+}
+
+func toOrderResponseFromDetailRow(o db.GetOrderByIDWithOutletRow) OrderResponse {
+	return OrderResponse{
+		ID:              o.ID.String(),
+		InvoiceNumber:   o.InvoiceNumber,
+		OutletID:        o.OutletID.String(),
+		OutletName:      o.OutletName.String,
+		OutletAddress:   o.OutletAddress.String,
+		PickupAddressID: o.PickupAddressID.String(),
+		Status:          o.Status,
+		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
+		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
+		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
+	}
+}
+
+func toPaymentResponse(p db.Payment) payment.PaymentResponse {
+	resp := payment.PaymentResponse{
+		ID:            p.ID.String(),
+		OrderID:       p.OrderID.String(),
+		Amount:        apphelper.NumericToFloat64(p.Amount),
+		PaymentMethod: p.PaymentMethod,
+		GatewayName:   p.GatewayName.String,
+		Status:        p.Status,
+	}
+	if p.GatewayTransactionID.Valid {
+		resp.GatewayTransactionID = p.GatewayTransactionID.String
+	}
+	if p.PaymentLink.Valid {
+		resp.PaymentLink = p.PaymentLink.String
+	}
+	if p.ExpiredAt.Valid {
+		resp.ExpiredAt = p.ExpiredAt.Time.Format(time.RFC3339)
+	}
+	if p.PaidAt.Valid {
+		resp.PaidAt = p.PaidAt.Time.Format(time.RFC3339)
+	}
+	return resp
 }

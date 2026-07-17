@@ -12,6 +12,11 @@ WHERE (sqlc.narg('outlet_id')::uuid IS NULL OR o.outlet_id = sqlc.narg('outlet_i
 ORDER BY c.created_at DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
+-- name: ListComplaintsByOrder :many
+SELECT * FROM complaints
+WHERE order_id = $1
+ORDER BY created_at DESC;
+
 -- name: CountComplaints :one
 SELECT count(*) FROM complaints c
 JOIN orders o ON o.id = c.order_id

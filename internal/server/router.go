@@ -98,6 +98,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.POST("/api/v1/customer/orders", authMiddleware, csrfMiddleware, orderHandler.CreateOrder)
 	router.GET("/api/v1/customer/orders", authMiddleware, orderHandler.ListOrders)
+	router.GET("/api/v1/customer/orders/:id", authMiddleware, orderHandler.GetOrderDetail)
 	router.POST("/api/v1/customer/orders/:id/complaint", authMiddleware, csrfMiddleware, orderHandler.CreateComplaint)
 	router.PATCH("/api/v1/customer/orders/:id/complete", authMiddleware, csrfMiddleware, orderHandler.CompleteOrder)
 

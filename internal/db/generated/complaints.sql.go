@@ -188,6 +188,46 @@ func (q *Queries) ListComplaints(ctx context.Context, arg ListComplaintsParams) 
 	return items, nil
 }
 
+const listComplaintsByOrder = `-- name: ListComplaintsByOrder :many
+SELECT id, order_id, customer_id, complaint_type, description, photo_urls, status, expected_resolution_date, resolved_by, resolution_notes, resolved_at, created_at, updated_at FROM complaints
+WHERE order_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListComplaintsByOrder(ctx context.Context, orderID pgtype.UUID) ([]Complaint, error) {
+	rows, err := q.db.Query(ctx, listComplaintsByOrder, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Complaint
+	for rows.Next() {
+		var i Complaint
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.CustomerID,
+			&i.ComplaintType,
+			&i.Description,
+			&i.PhotoUrls,
+			&i.Status,
+			&i.ExpectedResolutionDate,
+			&i.ResolvedBy,
+			&i.ResolutionNotes,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateComplaintStatus = `-- name: UpdateComplaintStatus :one
 UPDATE complaints
 SET status = $1,

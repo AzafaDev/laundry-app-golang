@@ -270,14 +270,71 @@ func (q *Queries) GetOrderByIDAny(ctx context.Context, id pgtype.UUID) (Order, e
 	return i, err
 }
 
+const getOrderByIDWithOutlet = `-- name: GetOrderByIDWithOutlet :one
+SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+WHERE orders.id = $1 AND orders.customer_id = $2
+`
+
+type GetOrderByIDWithOutletParams struct {
+	ID         pgtype.UUID `json:"id"`
+	CustomerID pgtype.UUID `json:"customer_id"`
+}
+
+type GetOrderByIDWithOutletRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	InvoiceNumber   string             `json:"invoice_number"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	PickupAddressID pgtype.UUID        `json:"pickup_address_id"`
+	Status          string             `json:"status"`
+	PickupDate      pgtype.Date        `json:"pickup_date"`
+	DeliveryFee     pgtype.Numeric     `json:"delivery_fee"`
+	TotalPrice      pgtype.Numeric     `json:"total_price"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+	PickupSchedule  pgtype.Timestamptz `json:"pickup_schedule"`
+	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletAddress   pgtype.Text        `json:"outlet_address"`
+}
+
+func (q *Queries) GetOrderByIDWithOutlet(ctx context.Context, arg GetOrderByIDWithOutletParams) (GetOrderByIDWithOutletRow, error) {
+	row := q.db.QueryRow(ctx, getOrderByIDWithOutlet, arg.ID, arg.CustomerID)
+	var i GetOrderByIDWithOutletRow
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
+		&i.OutletName,
+		&i.OutletAddress,
+	)
+	return i, err
+}
+
 const listOrders = `-- name: ListOrders :many
-SELECT id, invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at, total_weight_kg, pickup_schedule, auto_confirm_at FROM orders
-WHERE customer_id = $1
-  AND ($2::text IS NULL OR status = $2)
-  AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
-  AND ($4::timestamptz IS NULL OR created_at >= $4)
-  AND ($5::timestamptz IS NULL OR created_at <= $5)
-ORDER BY created_at DESC
+SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+WHERE orders.customer_id = $1
+  AND ($2::text IS NULL OR orders.status = $2)
+  AND ($3::text IS NULL OR orders.invoice_number ILIKE '%' || $3 || '%')
+  AND ($4::timestamptz IS NULL OR orders.created_at >= $4)
+  AND ($5::timestamptz IS NULL OR orders.created_at <= $5)
+ORDER BY orders.created_at DESC
 LIMIT $7 OFFSET $6
 `
 
@@ -291,7 +348,26 @@ type ListOrdersParams struct {
 	Limit      int32              `json:"limit"`
 }
 
-func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order, error) {
+type ListOrdersRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	InvoiceNumber   string             `json:"invoice_number"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	PickupAddressID pgtype.UUID        `json:"pickup_address_id"`
+	Status          string             `json:"status"`
+	PickupDate      pgtype.Date        `json:"pickup_date"`
+	DeliveryFee     pgtype.Numeric     `json:"delivery_fee"`
+	TotalPrice      pgtype.Numeric     `json:"total_price"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+	PickupSchedule  pgtype.Timestamptz `json:"pickup_schedule"`
+	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletAddress   pgtype.Text        `json:"outlet_address"`
+}
+
+func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListOrdersRow, error) {
 	rows, err := q.db.Query(ctx, listOrders,
 		arg.CustomerID,
 		arg.Status,
@@ -305,9 +381,9 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Order
+	var items []ListOrdersRow
 	for rows.Next() {
-		var i Order
+		var i ListOrdersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.InvoiceNumber,
@@ -323,6 +399,8 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]Order
 			&i.TotalWeightKg,
 			&i.PickupSchedule,
 			&i.AutoConfirmAt,
+			&i.OutletName,
+			&i.OutletAddress,
 		); err != nil {
 			return nil, err
 		}

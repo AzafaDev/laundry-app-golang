@@ -1,3 +1,8 @@
+-- name: ListOrderStatusHistoriesByOrder :many
+SELECT * FROM order_status_histories
+WHERE order_id = $1
+ORDER BY created_at ASC;
+
 -- name: WorkerPerformanceReport :many
 -- Approximates "jobs completed by worker" from order_status_histories.
 -- Known limitation: a bypass-approved station completion (ReviewBypassRequest)
