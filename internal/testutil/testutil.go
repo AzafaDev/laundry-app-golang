@@ -19,6 +19,7 @@ type TestApp struct {
 	Router  *gin.Engine
 	Queries *db.Queries
 	Pool    *pgxpool.Pool
+	Cfg     config.Config
 }
 
 // loadRepoRootEnv pre-loads the repo-root .env before config.Load() runs.
@@ -56,5 +57,6 @@ func NewTestApp(t *testing.T) *TestApp {
 		Router:  router,
 		Queries: db.New(pool),
 		Pool:    pool,
+		Cfg:     cfg,
 	}
 }

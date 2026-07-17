@@ -78,7 +78,19 @@ func (a *TestApp) CreateTestEmployee(t *testing.T, role string, outletID pgtype.
 	}
 
 	t.Cleanup(func() {
-		if err := a.Queries.HardDeleteEmployee(context.Background(), employee.ID); err != nil {
+		ctx := context.Background()
+		// t.Cleanup runs LIFO, so fixtures registered after this one (e.g.
+		// a driver_tasks row claimed by this employee) delete *before* this
+		// runs — but rows created *before* this employee (e.g. an order's
+		// driver_tasks the employee later claims via HTTP) have their
+		// cleanup run *after* this one instead, and still FK-reference it.
+		// Null out those references first so employee deletion never
+		// depends on cleanup ordering across fixtures.
+		_, _ = a.Pool.Exec(ctx, "UPDATE driver_tasks SET driver_id = NULL WHERE driver_id = $1", employee.ID)
+		// order_item_breakdowns.created_by is NOT NULL, so it can't be
+		// nulled out like driver_id above — the referencing rows must go.
+		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_item_breakdowns WHERE created_by = $1", employee.ID)
+		if err := a.Queries.HardDeleteEmployee(ctx, employee.ID); err != nil {
 			t.Logf("failed to clean up test employee %s: %v", employee.Email, err)
 		}
 	})
