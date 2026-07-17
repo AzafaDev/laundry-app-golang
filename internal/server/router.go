@@ -15,6 +15,7 @@ import (
 	"laundry-app-with-golang/internal/order"
 	"laundry-app-with-golang/internal/outlet"
 	"laundry-app-with-golang/internal/payment"
+	"laundry-app-with-golang/internal/ratelimit"
 	"laundry-app-with-golang/internal/report"
 	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/sse"
@@ -24,10 +25,27 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Handler, wilayahHandler *wilayah.Handler, outletHandler *outlet.Handler, orderHandler *order.Handler, laundryItemHandler *laundryitem.Handler, clothingTypeHandler *clothingtype.Handler, shiftHandler *shift.Handler, attendanceHandler *attendance.Handler, paymentHandler *payment.Handler, notificationHandler *notification.Handler, cronHandler *cron.Handler, reportHandler *report.Handler, sseHandler *sse.Handler, cfg config.Config, queries *db.Queries) *gin.Engine {
 	router := gin.Default()
+
+	isProd := cfg.GoEnv == "production"
+
+	globalMax := 1000
+	loginMax := 100
+	authMax := 200
+	if isProd {
+		globalMax = 500
+		loginMax = 10
+		authMax = 20
+	}
+	globalLimiter := ratelimit.NewLimiter(rate.Every(15*time.Minute/time.Duration(globalMax)), globalMax)
+	loginLimiter := ratelimit.NewLimiter(rate.Every(15*time.Minute/time.Duration(loginMax)), loginMax)
+	authLimiter := ratelimit.NewLimiter(rate.Every(15*time.Minute/time.Duration(authMax)), authMax)
+
+	router.Use(ratelimit.Middleware(globalLimiter, false))
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{cfg.FrontendURL},
@@ -40,6 +58,8 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	authMiddleware := middleware.AuthMiddleware(cfg.JWTAccessSecret, queries)
 	employeeAuthMiddleware := middleware.EmployeeAuthMiddleware(cfg.JWTEmployeeAccessSecret, queries)
 	csrfMiddleware := csrf.Middleware()
+	loginRateLimit := ratelimit.Middleware(loginLimiter, true)
+	authRateLimit := ratelimit.Middleware(authLimiter, false)
 
 	router.GET("/health", healthCheck)
 
@@ -48,14 +68,14 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/customer/me", authMiddleware, customerHandler.Me)
 	router.GET("/api/v1/customer/profile", authMiddleware, customerHandler.Profile)
 
-	router.POST("/api/v1/customer/auth/register", customerHandler.Register)
-	router.POST("/api/v1/customer/auth/login", customerHandler.Login)
+	router.POST("/api/v1/customer/auth/register", authRateLimit, customerHandler.Register)
+	router.POST("/api/v1/customer/auth/login", loginRateLimit, customerHandler.Login)
 	router.POST("/api/v1/customer/auth/refresh", customerHandler.Refresh)
 	router.POST("/api/v1/customer/auth/logout", customerHandler.Logout)
-	router.POST("/api/v1/customer/auth/verify", customerHandler.Verify)
-	router.POST("/api/v1/customer/auth/resend-verification", customerHandler.ResendVerification)
-	router.POST("/api/v1/customer/auth/forgot-password", customerHandler.ForgotPassword)
-	router.POST("/api/v1/customer/auth/reset-password", customerHandler.ResetPassword)
+	router.POST("/api/v1/customer/auth/verify", authRateLimit, customerHandler.Verify)
+	router.POST("/api/v1/customer/auth/resend-verification", authRateLimit, customerHandler.ResendVerification)
+	router.POST("/api/v1/customer/auth/forgot-password", authRateLimit, customerHandler.ForgotPassword)
+	router.POST("/api/v1/customer/auth/reset-password", authRateLimit, customerHandler.ResetPassword)
 	router.GET("/api/v1/customer/auth/google", customerHandler.GoogleLogin)
 	router.GET("/api/v1/customer/auth/google/callback", customerHandler.GoogleCallback)
 
@@ -63,7 +83,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.PATCH("/api/v1/customer/profile/password", authMiddleware, csrfMiddleware, customerHandler.ChangePassword)
 
 	router.POST("/api/v1/customer/profile/email", authMiddleware, csrfMiddleware, customerHandler.RequestEmailChange)
-	router.POST("/api/v1/customer/profile/email/verify", authMiddleware, csrfMiddleware, customerHandler.VerifyEmailChange)
+	router.POST("/api/v1/customer/profile/email/verify", authMiddleware, csrfMiddleware, authRateLimit, customerHandler.VerifyEmailChange)
 	router.POST("/api/v1/customer/profile/avatar", authMiddleware, csrfMiddleware, customerHandler.UploadAvatar)
 
 	router.GET("/api/v1/customer/addresses", authMiddleware, customerHandler.ListAddresses)
@@ -98,10 +118,10 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	// visitors to see laundry item pricing before signing up.
 	router.GET("/api/v1/customer/laundry-items", laundryItemHandler.ListPublicLaundryItems)
 
-	router.POST("/api/v1/employee/auth/login", employeeHandler.Login)
+	router.POST("/api/v1/employee/auth/login", loginRateLimit, employeeHandler.Login)
 	router.POST("/api/v1/employee/auth/refresh", employeeHandler.Refresh)
 	router.POST("/api/v1/employee/auth/logout", employeeHandler.Logout)
-	router.POST("/api/v1/employee/auth/forgot-password", employeeHandler.ForgotPassword)
+	router.POST("/api/v1/employee/auth/forgot-password", authRateLimit, employeeHandler.ForgotPassword)
 	router.POST("/api/v1/employee/auth/reset-password", employeeHandler.ResetPassword)
 
 	router.GET("/api/v1/employee/profile", employeeAuthMiddleware, employeeHandler.Profile)
