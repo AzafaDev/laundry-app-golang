@@ -20,7 +20,7 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 		IsPrimary:  isFirstAddress,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -71,7 +71,7 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 
 	if !isFirstAddress && req.IsPrimary {
 		if err := h.setPrimaryAddress(c.Request.Context(), customerID, created.ID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 
@@ -80,7 +80,7 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 			CustomerID: customerID,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		resp = toAddressResponse(
@@ -98,13 +98,13 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 func (h *Handler) ListAddresses(c *gin.Context) {
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	addresses, err := h.Queries.ListAddresses(c.Request.Context(), customerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *Handler) GetAddressByID(c *gin.Context) {
 
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -143,7 +143,7 @@ func (h *Handler) GetAddressByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -170,7 +170,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -215,7 +215,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 
 	if req.IsPrimary {
 		if err := h.setPrimaryAddress(c.Request.Context(), customerID, addressID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 
@@ -224,7 +224,7 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 			CustomerID: customerID,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		resp = toAddressResponse(
@@ -248,7 +248,7 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -259,12 +259,12 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.setPrimaryAddress(c.Request.Context(), customerID, addressID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -273,7 +273,7 @@ func (h *Handler) SetPrimaryAddress(c *gin.Context) {
 		CustomerID: customerID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -294,7 +294,7 @@ func (h *Handler) DeleteAddress(c *gin.Context) {
 
 	customerID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -307,7 +307,7 @@ func (h *Handler) DeleteAddress(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (h *Handler) DeleteAddress(c *gin.Context) {
 		ID:         addressID,
 		CustomerID: customerID,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -323,11 +323,11 @@ func (h *Handler) DeleteAddress(c *gin.Context) {
 		mostRecent, err := h.Queries.GetMostRecentAddress(c.Request.Context(), customerID)
 		if err == nil {
 			if err := h.setPrimaryAddress(c.Request.Context(), customerID, mostRecent.ID); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				apperr.RespondInternalError(c, err)
 				return
 			}
 		} else if !errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}

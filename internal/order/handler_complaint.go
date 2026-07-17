@@ -41,7 +41,7 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

@@ -21,7 +21,7 @@ func (h *Handler) ListEmployeeShifts(c *gin.Context) {
 
 	shifts, err := h.Queries.ListEmployeeShiftsByEmployee(c.Request.Context(), employeeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *Handler) CreateEmployeeShift(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -124,7 +124,7 @@ func (h *Handler) DeleteEmployeeShift(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "employee_shift_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (h *Handler) DeleteEmployeeShift(c *gin.Context) {
 		ID:         shiftRecordID,
 		EmployeeID: employeeID,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

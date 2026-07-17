@@ -39,7 +39,7 @@ func (h *Handler) Register(c *gin.Context) {
 
 	hashedPassword, err := auth.HashPassword(req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	customer, err := h.Queries.CreateCustomer(c.Request.Context(), db.CreateCustomerParams{
@@ -55,13 +55,13 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	token, err := auth.GenerateRandomToken()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *Handler) Register(c *gin.Context) {
 
 	_, err = h.Queries.CreateEmailVerificationToken(c.Request.Context(), emailVerificationParams)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	if _, _, err := h.issueTokens(c, customer.ID, customer.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	err = h.Queries.RevokeRefreshToken(c.Request.Context(), existingRefreshToken.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -158,7 +158,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 	}
 
 	if _, _, err := h.issueTokens(c, customer.ID, customer.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -197,12 +197,12 @@ func (h *Handler) Verify(c *gin.Context) {
 	}
 
 	if err = h.Queries.MarkEmailVerificationTokenUsed(c.Request.Context(), emailVerificationToken.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err = h.Queries.VerifyCustomerEmail(c.Request.Context(), emailVerificationToken.CustomerID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -318,7 +318,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	hashedPassword, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -328,28 +328,28 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 	}
 	updatedCustomer, err := h.Queries.UpdateCustomerPassword(c.Request.Context(), updatedCustomerPasswordParams)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err = h.Queries.MarkPasswordResetTokenUsed(c.Request.Context(), passwordResetToken.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	bumpedCustomer, err := h.Queries.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.Queries.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if _, _, err := h.issueTokens(c, bumpedCustomer.ID, bumpedCustomer.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

@@ -19,13 +19,13 @@ func (h *Handler) ListWorkShifts(c *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountWorkShifts(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *Handler) GetWorkShiftByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) CreateWorkShift(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (h *Handler) UpdateWorkShift(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -157,13 +157,13 @@ func (h *Handler) SoftDeleteWorkShift(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "work_shift_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	activeAssignments, err := h.Queries.CountActiveEmployeeShiftsByShiftID(c.Request.Context(), shiftID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if activeAssignments > 0 {
@@ -172,7 +172,7 @@ func (h *Handler) SoftDeleteWorkShift(c *gin.Context) {
 	}
 
 	if err := h.Queries.SoftDeleteWorkShift(c.Request.Context(), shiftID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *Handler) HardDeleteWorkShift(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *Handler) HardDeleteWorkShift(c *gin.Context) {
 	}
 
 	if err := h.Queries.HardDeleteWorkShift(c.Request.Context(), shiftID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

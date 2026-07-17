@@ -97,7 +97,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if ord.Status != station {
@@ -112,7 +112,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		apperr.RespondError(c, http.StatusConflict, "bypass_already_pending")
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -121,7 +121,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		Station: station,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if previousCount >= MaxBypassAttemptsPerStation {
@@ -131,30 +131,30 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 
 	expectedBreakdown, expectedSatuan, err := h.expectedItems(c.Request.Context(), orderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	expectedNormalized, err := h.buildNormalizedItems(c.Request.Context(), expectedBreakdown, expectedSatuan)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	actualBreakdown, actualSatuan := actualItemMaps(req)
 	actualNormalized, err := h.buildNormalizedItems(c.Request.Context(), actualBreakdown, actualSatuan)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	expectedJSON, err := json.Marshal(expectedNormalized)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	actualJSON, err := json.Marshal(actualNormalized)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		AttemptNumber:          int32(previousCount) + 1,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -191,7 +191,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 
 	resp, err := h.toBypassResponse(created)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	resp.Message = "bypass request submitted successfully"
@@ -218,7 +218,7 @@ func (h *Handler) GetBypassByOrder(c *gin.Context) {
 
 	rows, err := h.Queries.ListBypassRequestsByOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -226,7 +226,7 @@ func (h *Handler) GetBypassByOrder(c *gin.Context) {
 	for _, row := range rows {
 		resp, err := h.toBypassResponse(row)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		data = append(data, resp)
@@ -267,7 +267,7 @@ func (h *Handler) ListBypassRequests(c *gin.Context) {
 		Offset:   offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -276,7 +276,7 @@ func (h *Handler) ListBypassRequests(c *gin.Context) {
 		Status:   status,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -284,7 +284,7 @@ func (h *Handler) ListBypassRequests(c *gin.Context) {
 	for _, row := range rows {
 		resp, err := h.toBypassResponse(row)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		data = append(data, resp)
@@ -306,14 +306,14 @@ func (h *Handler) GetBypassRequest(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if outletID, scoped := bypassListFilter(c); scoped {
 		ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), bypass.OrderID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if ord.OutletID != outletID {
@@ -324,7 +324,7 @@ func (h *Handler) GetBypassRequest(c *gin.Context) {
 
 	resp, err := h.toBypassResponse(bypass)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -361,13 +361,13 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), bypass.OrderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if ord.OutletID != adminOutletID {
@@ -391,7 +391,7 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -417,7 +417,7 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 
 	resp, err := h.toBypassResponse(reviewed)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	resp.Message = "bypass request rejected"

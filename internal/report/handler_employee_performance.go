@@ -3,6 +3,7 @@ package report
 import (
 	"context"
 	"fmt"
+	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"sort"
@@ -105,7 +106,7 @@ func (h *Handler) GetEmployeePerformanceReport(c *gin.Context) {
 
 	data, err := h.fetchEmployeePerformance(c.Request.Context(), outletID, scoped, dateFrom, dateTo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -118,7 +119,7 @@ func (h *Handler) ExportEmployeePerformanceReport(c *gin.Context) {
 
 	data, err := h.fetchEmployeePerformance(c.Request.Context(), outletID, scoped, dateFrom, dateTo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

@@ -19,13 +19,13 @@ func (h *Handler) ListClothingTypes(c *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountClothingTypes(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *Handler) GetClothingTypeByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *Handler) CreateClothingType(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *Handler) UpdateClothingType(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -129,12 +129,12 @@ func (h *Handler) SoftDeleteClothingType(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "clothing_type_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.Queries.SoftDeleteClothingType(c.Request.Context(), typeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

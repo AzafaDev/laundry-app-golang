@@ -42,7 +42,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 
 	if _, _, err := h.issueEmployeeTokens(c, employee.ID, employee.Role, employee.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 	}
 
 	if err := h.Queries.RevokeEmployeeRefreshToken(c.Request.Context(), existingRefreshToken.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 	}
 
 	if _, _, err := h.issueEmployeeTokens(c, employee.ID, employee.Role, employee.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -163,7 +163,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 
 	hashedPassword, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -172,28 +172,28 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		ID:           passwordResetToken.EmployeeID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err = h.Queries.MarkEmployeePasswordResetTokenUsed(c.Request.Context(), passwordResetToken.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	bumpedEmployee, err := h.Queries.IncrementEmployeeTokenVersion(c.Request.Context(), updatedEmployee.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.Queries.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), updatedEmployee.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if _, _, err := h.issueEmployeeTokens(c, bumpedEmployee.ID, bumpedEmployee.Role, bumpedEmployee.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

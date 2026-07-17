@@ -39,13 +39,13 @@ func (h *Handler) ListLaundryItems(c *gin.Context) {
 		Offset: offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountLaundryItems(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *Handler) GetLaundryItemByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (h *Handler) CreateLaundryItem(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (h *Handler) UpdateLaundryItem(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -177,12 +177,12 @@ func (h *Handler) SoftDeleteLaundryItem(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "laundry_item_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.Queries.SoftDeleteLaundryItem(c.Request.Context(), itemID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *Handler) HardDeleteLaundryItem(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -212,7 +212,7 @@ func (h *Handler) HardDeleteLaundryItem(c *gin.Context) {
 	}
 
 	if err := h.Queries.HardDeleteLaundryItem(c.Request.Context(), itemID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -224,7 +224,7 @@ func (h *Handler) HardDeleteLaundryItem(c *gin.Context) {
 func (h *Handler) ListPublicLaundryItems(c *gin.Context) {
 	items, err := h.Queries.ListActiveLaundryItems(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

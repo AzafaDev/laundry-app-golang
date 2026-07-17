@@ -3,6 +3,7 @@ package attendance
 import (
 	"context"
 	"fmt"
+	"laundry-app-with-golang/internal/apperr"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/shift"
 	"net/http"
@@ -28,7 +29,7 @@ func (h *Handler) ListAttendanceReport(c *gin.Context) {
 		Offset:     offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -40,7 +41,7 @@ func (h *Handler) ListAttendanceReport(c *gin.Context) {
 		DateTo:     filter.dateTo,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -75,7 +76,7 @@ func (h *Handler) ExportAttendanceReport(c *gin.Context) {
 		Offset:     0,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -166,7 +167,7 @@ func (h *Handler) TriggerSweep(c *gin.Context) {
 
 	result, err := RunEndOfDaySweep(c.Request.Context(), h.Queries, targetDate)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

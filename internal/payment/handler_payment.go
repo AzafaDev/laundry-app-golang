@@ -43,7 +43,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 
 	existing, err := h.Queries.GetPaymentByOrderID(c.Request.Context(), orderID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if err == nil && existing.Status == "paid" {
@@ -65,7 +65,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 
 	customer, err := h.Queries.GetCustomerByID(c.Request.Context(), customerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -98,13 +98,13 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 
 	responseJSON, err := json.Marshal(snapResp)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	amountNumeric, err := float64ToNumeric(totalPrice)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		ExpiredAt:            pgtype.Timestamptz{Valid: false},
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (h *Handler) GetPaymentStatus(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "order_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -159,7 +159,7 @@ func (h *Handler) GetPaymentStatus(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *Handler) SyncPaymentStatus(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "order_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (h *Handler) SyncPaymentStatus(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -217,13 +217,13 @@ func (h *Handler) SyncPaymentStatus(c *gin.Context) {
 	newStatus := resolvePaymentStatus(payment.Status, status.TransactionStatus, status.FraudStatus)
 	responseJSON, err := json.Marshal(status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -232,12 +232,12 @@ func (h *Handler) SyncPaymentStatus(c *gin.Context) {
 
 	updated, err := applyPaymentStatus(c.Request.Context(), qtx, payment, newStatus, responseJSON)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -264,7 +264,7 @@ func (h *Handler) HandleWebhook(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -292,7 +292,7 @@ func (h *Handler) HandleWebhook(c *gin.Context) {
 	if newStatus == payment.Status {
 		ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), payment.OrderID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if ord.Status != orderStatusWaitingPayment {
@@ -303,13 +303,13 @@ func (h *Handler) HandleWebhook(c *gin.Context) {
 
 	gatewayResponseJSON, err := json.Marshal(body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -317,12 +317,12 @@ func (h *Handler) HandleWebhook(c *gin.Context) {
 	qtx := h.Queries.WithTx(tx)
 
 	if _, err := applyPaymentStatus(c.Request.Context(), qtx, payment, newStatus, gatewayResponseJSON); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

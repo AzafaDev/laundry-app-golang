@@ -45,7 +45,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 
 	existingItemCount, err := h.Queries.CountOrderItemsByOrder(c.Request.Context(), orderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if existingItemCount > 0 {
@@ -102,7 +102,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 			return
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if !li.IsActive {
@@ -139,7 +139,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 			return
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if !ct.IsActive {
@@ -157,18 +157,18 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 
 	totalPriceNumeric, err := float64ToNumeric(totalPrice)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	totalWeightNumeric, err := float64ToNumeric(req.TotalWeightKG)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -178,12 +178,12 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 	for _, item := range resolvedItems {
 		quantityNumeric, err := float64ToNumeric(item.quantity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		priceNumeric, err := float64ToNumeric(item.basePrice)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if _, err := qtx.CreateOrderItem(c.Request.Context(), db.CreateOrderItemParams{
@@ -192,7 +192,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 			Quantity:      quantityNumeric,
 			PriceAtOrder:  priceNumeric,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -204,7 +204,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 			Quantity:       b.quantity,
 			CreatedBy:      employeeID,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -221,7 +221,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -234,12 +234,12 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		ChangedByID:   employeeID,
 		Note:          pgtype.Text{Valid: false},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

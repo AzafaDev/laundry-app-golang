@@ -40,13 +40,13 @@ func (h *Handler) ListCustomerNotifications(c *gin.Context) {
 		Offset:     offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountCustomerNotifications(c.Request.Context(), customerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *Handler) GetCustomerUnreadCount(c *gin.Context) {
 
 	count, err := h.Queries.CountUnreadCustomerNotifications(c.Request.Context(), customerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *Handler) MarkCustomerNotificationRead(c *gin.Context) {
 		ID:         notificationID,
 		CustomerID: customerID,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (h *Handler) MarkAllCustomerNotificationsRead(c *gin.Context) {
 	}
 
 	if err := h.Queries.MarkAllCustomerNotificationsRead(c.Request.Context(), customerID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -128,13 +128,13 @@ func (h *Handler) ListEmployeeNotifications(c *gin.Context) {
 		Offset:     offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountEmployeeNotifications(c.Request.Context(), employeeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *Handler) GetEmployeeUnreadCount(c *gin.Context) {
 
 	count, err := h.Queries.CountUnreadEmployeeNotifications(c.Request.Context(), employeeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *Handler) MarkEmployeeNotificationRead(c *gin.Context) {
 		ID:         notificationID,
 		EmployeeID: employeeID,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *Handler) MarkAllEmployeeNotificationsRead(c *gin.Context) {
 	}
 
 	if err := h.Queries.MarkAllEmployeeNotificationsRead(c.Request.Context(), employeeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

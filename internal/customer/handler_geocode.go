@@ -25,7 +25,7 @@ func (h *Handler) Geocode(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -46,7 +46,7 @@ func (h *Handler) SearchGeocode(c *gin.Context) {
 
 	results, err := h.geocodeClient.Search(c.Request.Context(), q, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if results == nil {

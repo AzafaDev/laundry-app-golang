@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"laundry-app-with-golang/internal/apperr"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ import (
 func (h *Handler) TriggerAutoCompleteOrders(c *gin.Context) {
 	completed, err := RunAutoCompleteOrders(c.Request.Context(), h.Pool, h.Queries)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"completed": completed})
@@ -22,7 +23,7 @@ func (h *Handler) TriggerAutoCompleteOrders(c *gin.Context) {
 // RunCleanupTokens.
 func (h *Handler) TriggerCleanupTokens(c *gin.Context) {
 	if err := RunCleanupTokens(c.Request.Context(), h.Queries); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "cleanup completed"})

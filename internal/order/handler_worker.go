@@ -32,7 +32,7 @@ func respondEligibilityError(c *gin.Context, err error) {
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	apperr.RespondInternalError(c, err)
 }
 
 // assertStationAccess rejects the request unless the caller's role is the
@@ -79,7 +79,7 @@ func (h *Handler) GetStationOrders(c *gin.Context) {
 		Status:   station,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -222,14 +222,14 @@ func (h *Handler) SubmitItems(c *gin.Context) {
 
 	expectedBreakdown, expectedSatuan, err := h.expectedItems(c.Request.Context(), orderID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	discrepancies := compareItems(expectedBreakdown, expectedSatuan, req)
 	if len(discrepancies) > 0 {
 		if err := h.fillDiscrepancyNames(c.Request.Context(), discrepancies); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		c.JSON(http.StatusConflict, SubmitItemsResponse{
@@ -292,14 +292,14 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 			nextStatus = StatusReadyForDelivery
 			paidDeliveryTask = true
 		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -316,7 +316,7 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -325,7 +325,7 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 			OrderID:  orderID,
 			TaskType: "delivery",
 		}); err != nil && !isUniqueViolation(err) {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -338,12 +338,12 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		ChangedByID:   employeeID,
 		Note:          pgtype.Text{Valid: false},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

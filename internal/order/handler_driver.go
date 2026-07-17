@@ -87,7 +87,7 @@ func (h *Handler) listAvailableDriverTasks(c *gin.Context, taskType string) {
 
 	tasks, err := h.Queries.ListAvailableDriverTasksByType(c.Request.Context(), taskType)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *Handler) listAvailableDriverTasks(c *gin.Context, taskType string) {
 	for _, t := range tasks {
 		resp, err := h.toDriverTaskResponse(c.Request.Context(), t, true)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		data = append(data, resp)
@@ -125,13 +125,13 @@ func (h *Handler) GetActiveTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	resp, err := h.toDriverTaskResponse(c.Request.Context(), task, true)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": resp})
@@ -166,7 +166,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if preCheck.Status != "available" || preCheck.DriverID.Valid {
@@ -176,7 +176,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -192,7 +192,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -213,7 +213,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		ID:             claimed.OrderID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -225,12 +225,12 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 		ChangedByID:   employeeID,
 		Note:          pgtype.Text{Valid: false},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -252,7 +252,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 
 	resp, err := h.toDriverTaskResponse(c.Request.Context(), claimed, false)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	resp.Message = "task claimed successfully"
@@ -282,7 +282,7 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	if preCheck.Status != "in_progress" || preCheck.DriverID != employeeID {
@@ -292,7 +292,7 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -308,7 +308,7 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -331,7 +331,7 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -343,12 +343,12 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 		ChangedByID:   employeeID,
 		Note:          pgtype.Text{Valid: false},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -372,7 +372,7 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 
 	resp, err := h.toDriverTaskResponse(c.Request.Context(), completed, false)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	resp.Message = "task completed successfully"
@@ -394,13 +394,13 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 		Offset:   offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalCount, err := h.Queries.CountDriverTaskHistory(c.Request.Context(), employeeID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -408,7 +408,7 @@ func (h *Handler) GetTaskHistory(c *gin.Context) {
 	for _, t := range tasks {
 		resp, err := h.toDriverTaskResponse(c.Request.Context(), t, false)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		data = append(data, resp)

@@ -29,13 +29,13 @@ func (h *Handler) Me(c *gin.Context) {
 func (h *Handler) Profile(c *gin.Context) {
 	customerUUID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	existingCustomer, err := h.Queries.GetCustomerByID(c.Request.Context(), customerUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -61,13 +61,13 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	customerUUID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	existingCustomer, err := h.Queries.GetCustomerByID(c.Request.Context(), customerUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -84,7 +84,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	hashedPassword, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -95,23 +95,23 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	updatedCustomer, err := h.Queries.UpdateCustomerPassword(c.Request.Context(), updateCustomerPasswordParams)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := h.Queries.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	bumpedCustomer, err := h.Queries.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if _, _, err := h.issueTokens(c, bumpedCustomer.ID, bumpedCustomer.TokenVersion); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	customerUUID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -158,7 +158,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	updatedCustomer, err := h.Queries.UpdateCustomerProfile(c.Request.Context(), updateProfileParams)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -183,13 +183,13 @@ func (h *Handler) RequestEmailChange(c *gin.Context) {
 
 	customerUUID, _, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	existingCustomer, err := h.Queries.GetCustomerByID(c.Request.Context(), customerUUID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -205,7 +205,7 @@ func (h *Handler) RequestEmailChange(c *gin.Context) {
 
 	token, err := auth.GenerateRandomToken()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func (h *Handler) RequestEmailChange(c *gin.Context) {
 	}
 
 	if _, err = h.Queries.CreateEmailChangeToken(c.Request.Context(), createEmailChangeTokenParams); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -255,12 +255,12 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err = h.Queries.MarkEmailChangeTokenUsed(c.Request.Context(), emailChangeToken.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -277,7 +277,7 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 func (h *Handler) UploadAvatar(c *gin.Context) {
 	customerUUID, customerIDStr, err := h.currentCustomerID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -300,14 +300,14 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer file.Close()
 
 	avatarURL, err := h.storageClient.UploadAvatar(c.Request.Context(), file, customerIDStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -316,7 +316,7 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 		ID:        customerUUID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

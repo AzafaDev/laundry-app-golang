@@ -104,7 +104,7 @@ func (h *Handler) GetSalesReport(c *gin.Context) {
 
 	resp, err := h.fetchSalesReport(c.Request.Context(), groupBy, outletID, scoped, dateFrom, dateTo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h *Handler) ExportSalesReport(c *gin.Context) {
 
 	resp, err := h.fetchSalesReport(c.Request.Context(), groupBy, outletID, scoped, dateFrom, dateTo)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

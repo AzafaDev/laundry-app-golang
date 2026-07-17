@@ -41,7 +41,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 
 		hashed, err := auth.HashPassword(password)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		passwordHash = pgtype.Text{String: hashed, Valid: true}
@@ -63,7 +63,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 			apperr.RespondError(c, http.StatusBadRequest, "outlet_not_found")
 			return
 		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -84,7 +84,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *Handler) ResendInvite(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *Handler) ResendInvite(c *gin.Context) {
 	}
 
 	if err := h.Queries.DeleteUnusedEmployeePasswordResetTokens(c.Request.Context(), employeeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -188,7 +188,7 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -207,7 +207,7 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 			apperr.RespondError(c, http.StatusBadRequest, "outlet_not_found")
 			return
 		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -217,7 +217,7 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 		ID:       employeeID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -248,7 +248,7 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 		RowOffset:      offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -258,7 +258,7 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 		Search:         search,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -283,7 +283,7 @@ func (h *Handler) GetEmployeeByIDAdmin(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -315,7 +315,7 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -335,17 +335,17 @@ func (h *Handler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if existing.Role != updated.Role {
 		if err := h.Queries.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), employeeID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 		if _, err := h.Queries.IncrementEmployeeTokenVersion(c.Request.Context(), employeeID); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			apperr.RespondInternalError(c, err)
 			return
 		}
 	}
@@ -392,13 +392,13 @@ func (h *Handler) SoftDeleteEmployee(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "employee_not_found")
 		return
 	} else if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -406,17 +406,17 @@ func (h *Handler) SoftDeleteEmployee(c *gin.Context) {
 	qtx := h.Queries.WithTx(tx)
 
 	if err := qtx.SoftDeleteEmployee(c.Request.Context(), employeeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := qtx.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), employeeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -441,7 +441,7 @@ func (h *Handler) HardDeleteEmployee(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -451,7 +451,7 @@ func (h *Handler) HardDeleteEmployee(c *gin.Context) {
 	}
 
 	if err := h.Queries.HardDeleteEmployee(c.Request.Context(), employeeID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

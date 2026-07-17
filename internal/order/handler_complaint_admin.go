@@ -66,7 +66,7 @@ func (h *Handler) ListComplaints(c *gin.Context) {
 		Offset:   offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (h *Handler) ListComplaints(c *gin.Context) {
 		Search:   search,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *Handler) GetComplaintStats(c *gin.Context) {
 
 	rows, err := h.Queries.CountComplaintsByStatus(c.Request.Context(), outletFilter)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *Handler) GetComplaintByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -184,7 +184,7 @@ func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -232,7 +232,7 @@ func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -248,17 +248,17 @@ func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
 		ID:                     complaintID,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := notification.NotifyCustomer(c.Request.Context(), qtx, updated.CustomerID, title, body, notification.TypeComplaintUpdate, updated.OrderID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

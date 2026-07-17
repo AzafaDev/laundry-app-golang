@@ -58,13 +58,13 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	activeOutlets, err := h.Queries.ListActiveOutlets(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -76,13 +76,13 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	deliveryFee, err := float64ToNumeric(calculateDeliveryFee(distanceKM))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	totalPrice, err := float64ToNumeric(0)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -107,7 +107,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		TotalPrice:      totalPrice,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		ChangedByID:   customerID,
 		Note:          pgtype.Text{Valid: false},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -130,12 +130,12 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		OrderID:  created.ID,
 		TaskType: "pickup",
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *Handler) ListOrders(c *gin.Context) {
 		Offset:     offset,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -206,7 +206,7 @@ func (h *Handler) ListOrders(c *gin.Context) {
 		DateTo:     dateTo,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -246,7 +246,7 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -257,7 +257,7 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 	defer tx.Rollback(c.Request.Context())
@@ -277,7 +277,7 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -289,12 +289,12 @@ func (h *Handler) CompleteOrder(c *gin.Context) {
 		ChangedByID:   customerID,
 		Note:          pgtype.Text{String: "Dikonfirmasi selesai oleh customer.", Valid: true},
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
 	if err := tx.Commit(c.Request.Context()); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

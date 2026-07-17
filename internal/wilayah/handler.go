@@ -23,7 +23,7 @@ func NewHandler(queries *db.Queries) *Handler {
 func (h *Handler) ListProvinces(c *gin.Context) {
 	provinces, err := h.Queries.ListProvinces(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *Handler) ListCitiesByProvince(c *gin.Context) {
 
 	cities, err := h.Queries.ListCitiesByProvince(c.Request.Context(), int32(provinceID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *Handler) ListDistrictsByCity(c *gin.Context) {
 
 	districts, err := h.Queries.ListDistrictsByCity(c.Request.Context(), int32(cityID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		apperr.RespondInternalError(c, err)
 		return
 	}
 

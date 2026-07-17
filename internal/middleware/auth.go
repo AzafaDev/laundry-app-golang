@@ -14,13 +14,13 @@ func AuthMiddleware(secret string, queries *db.Queries) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		token, err := ctx.Cookie("access_token")
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
 		claims, err := auth.VerifyAccessToken(token, secret)
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			apperr.AbortWithError(ctx, http.StatusUnauthorized, "invalid_session")
 			return
 		}
 
