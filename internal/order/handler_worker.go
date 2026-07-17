@@ -274,30 +274,69 @@ func (h *Handler) CompleteStation(c *gin.Context) {
 	h.completeStation(c, employeeID, station, orderID)
 }
 
-// completeStation performs the optimistic-concurrency status transition
-// shared by SubmitItems (on match) and the direct CompleteStation endpoint:
-// UPDATE ... WHERE status = <station> — if no row matched, the order was
-// already moved past this station by a concurrent request, so this loses
-// the race and reports 409 rather than double-processing.
-func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, station string, orderID pgtype.UUID) {
-	nextStatus := stationNextStatus[station]
-	paidDeliveryTask := false
+// completeStationTx performs the optimistic-concurrency status transition
+// shared by SubmitItems (on match), the direct CompleteStation endpoint, and
+// ReviewBypassRequest's approve path: UPDATE ... WHERE status = <station> —
+// if no row matched, the order was already moved past this station by a
+// concurrent request, so this loses the race and returns pgx.ErrNoRows
+// rather than double-processing. Takes an already-open qtx rather than
+// opening its own transaction, so callers that need to commit this
+// atomically alongside their own writes (ReviewBypassRequest) can share one
+// transaction instead of nesting two independent commits.
+func (h *Handler) completeStationTx(ctx context.Context, qtx *db.Queries, employeeID pgtype.UUID, station string, orderID pgtype.UUID) (updated db.Order, nextStatus string, paidDeliveryTask bool, err error) {
+	nextStatus = stationNextStatus[station]
 
 	// Retrofit (ticket #2): a customer may pay before packing finishes. If
 	// so, skip waiting_payment entirely and go straight to
 	// ready_for_delivery, creating the delivery driver_task here instead of
 	// leaving the order stuck waiting for a webhook that already fired.
 	if station == StatusPacking {
-		pay, err := h.Queries.GetPaymentByOrderID(c.Request.Context(), orderID)
-		if err == nil && pay.Status == "paid" {
+		pay, payErr := qtx.GetPaymentByOrderID(ctx, orderID)
+		if payErr == nil && pay.Status == "paid" {
 			nextStatus = StatusReadyForDelivery
 			paidDeliveryTask = true
-		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			apperr.RespondInternalError(c, err)
-			return
+		} else if payErr != nil && !errors.Is(payErr, pgx.ErrNoRows) {
+			return db.Order{}, "", false, payErr
 		}
 	}
 
+	updated, err = qtx.UpdateOrderStatusIfCurrent(ctx, db.UpdateOrderStatusIfCurrentParams{
+		Status:   nextStatus,
+		ID:       orderID,
+		Status_2: station,
+	})
+	if err != nil {
+		return db.Order{}, "", false, err
+	}
+
+	if paidDeliveryTask {
+		if _, err := qtx.CreateDriverTask(ctx, db.CreateDriverTaskParams{
+			OrderID:  orderID,
+			TaskType: "delivery",
+		}); err != nil && !apphelper.IsUniqueViolation(err) {
+			return db.Order{}, "", false, err
+		}
+	}
+
+	if _, err := qtx.CreateOrderStatusHistory(ctx, db.CreateOrderStatusHistoryParams{
+		OrderID:       orderID,
+		OldStatus:     pgtype.Text{String: station, Valid: true},
+		NewStatus:     nextStatus,
+		ChangedByType: "employee",
+		ChangedByID:   employeeID,
+		Note:          pgtype.Text{Valid: false},
+	}); err != nil {
+		return db.Order{}, "", false, err
+	}
+
+	return updated, nextStatus, paidDeliveryTask, nil
+}
+
+// completeStation is completeStationTx wrapped in its own transaction, plus
+// the HTTP response / SSE broadcast / notification tail — used directly by
+// SubmitItems and CompleteStation, which don't need to share a transaction
+// with anything else.
+func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, station string, orderID pgtype.UUID) {
 	tx, err := h.Pool.Begin(c.Request.Context())
 	if err != nil {
 		apperr.RespondInternalError(c, err)
@@ -307,11 +346,7 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 
 	qtx := h.Queries.WithTx(tx)
 
-	updated, err := qtx.UpdateOrderStatusIfCurrent(c.Request.Context(), db.UpdateOrderStatusIfCurrentParams{
-		Status:   nextStatus,
-		ID:       orderID,
-		Status_2: station,
-	})
+	updated, nextStatus, paidDeliveryTask, err := h.completeStationTx(c.Request.Context(), qtx, employeeID, station, orderID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		apperr.RespondError(c, http.StatusConflict, "station_already_processed")
 		return
@@ -321,33 +356,24 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		return
 	}
 
-	if paidDeliveryTask {
-		if _, err := qtx.CreateDriverTask(c.Request.Context(), db.CreateDriverTaskParams{
-			OrderID:  orderID,
-			TaskType: "delivery",
-		}); err != nil && !apphelper.IsUniqueViolation(err) {
-			apperr.RespondInternalError(c, err)
-			return
-		}
-	}
-
-	if _, err := qtx.CreateOrderStatusHistory(c.Request.Context(), db.CreateOrderStatusHistoryParams{
-		OrderID:       orderID,
-		OldStatus:     pgtype.Text{String: station, Valid: true},
-		NewStatus:     nextStatus,
-		ChangedByType: "employee",
-		ChangedByID:   employeeID,
-		Note:          pgtype.Text{Valid: false},
-	}); err != nil {
-		apperr.RespondInternalError(c, err)
-		return
-	}
-
 	if err := tx.Commit(c.Request.Context()); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
+	h.broadcastStationCompletion(c.Request.Context(), updated, employeeID, station, nextStatus, paidDeliveryTask)
+
+	resp := toOrderResponse(updated)
+	resp.Message = "station completed successfully"
+	c.JSON(http.StatusOK, SubmitItemsResponse{Success: true, Data: &resp})
+}
+
+// broadcastStationCompletion fires the SSE broadcasts and customer/outlet
+// notifications for a station transition that has already committed —
+// shared by completeStation and ReviewBypassRequest's approve path, so
+// approving a bypass produces the exact same downstream events a normal
+// station completion would.
+func (h *Handler) broadcastStationCompletion(ctx context.Context, updated db.Order, employeeID pgtype.UUID, station, nextStatus string, paidDeliveryTask bool) {
 	outletChannel := "outlet:" + updated.OutletID.String()
 	sse.Default.Broadcast(outletChannel, "station:order-completed", gin.H{
 		"orderID":   updated.ID.String(),
@@ -385,12 +411,8 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		if nextStatus == StatusReadyForDelivery {
 			title, body = "Pesanan Siap Dikirim", fmt.Sprintf("Pesanan %s sudah selesai dan siap untuk dikirim.", updated.InvoiceNumber)
 		}
-		_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID, title, body, notification.TypeOrderUpdate, updated.ID)
-		_ = notification.NotifyOutletEmployees(c.Request.Context(), h.Queries, updated.OutletID, []string{"outlet_admin"},
+		_ = notification.NotifyCustomer(ctx, h.Queries, updated.CustomerID, title, body, notification.TypeOrderUpdate, updated.ID)
+		_ = notification.NotifyOutletEmployees(ctx, h.Queries, updated.OutletID, []string{"outlet_admin"},
 			"Pesanan Selesai Diproses", fmt.Sprintf("Pesanan %s selesai di packing.", updated.InvoiceNumber), notification.TypeOrderUpdate, updated.ID)
 	}
-
-	resp := toOrderResponse(updated)
-	resp.Message = "station completed successfully"
-	c.JSON(http.StatusOK, SubmitItemsResponse{Success: true, Data: &resp})
 }

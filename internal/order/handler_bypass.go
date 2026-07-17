@@ -376,13 +376,59 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		return
 	}
 
-	newStatus := "rejected"
-	if req.Approve {
-		newStatus = "approved"
+	if !req.Approve {
+		reviewed, err := h.Queries.ReviewBypassRequest(c.Request.Context(), db.ReviewBypassRequestParams{
+			Status:     "rejected",
+			ReviewedBy: adminID,
+			AdminNotes: pgtype.Text{String: req.AdminNotes, Valid: req.AdminNotes != ""},
+			ID:         bypassID,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			apperr.RespondError(c, http.StatusConflict, "bypass_already_reviewed")
+			return
+		}
+		if err != nil {
+			apperr.RespondInternalError(c, err)
+			return
+		}
+
+		sse.Default.Broadcast("user:"+reviewed.RequestedBy.String(), "bypass:rejected", gin.H{
+			"bypassID":      reviewed.ID.String(),
+			"orderID":       reviewed.OrderID.String(),
+			"invoiceNumber": ord.InvoiceNumber,
+			"adminNotes":    req.AdminNotes,
+		})
+
+		resp, err := h.toBypassResponse(reviewed)
+		if err != nil {
+			apperr.RespondInternalError(c, err)
+			return
+		}
+		resp.Message = "bypass request rejected"
+		c.JSON(http.StatusOK, resp)
+		return
 	}
 
-	reviewed, err := h.Queries.ReviewBypassRequest(c.Request.Context(), db.ReviewBypassRequestParams{
-		Status:     newStatus,
+	// Approve path: the bypass approval and the station transition it
+	// triggers (CompleteStationAfterBypass — same optimistic-concurrency
+	// transition as a normal station completion, deliberately skipping
+	// compareItems and the pending-bypass check, since this IS the manual
+	// override those checks exist to gate) must commit atomically. If the
+	// station transition loses the race (409 station_already_processed) or
+	// fails for any other reason, the bypass approval must roll back with
+	// it — otherwise the bypass is left permanently "approved" with no
+	// corresponding station transition and no way to retry.
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+
+	qtx := h.Queries.WithTx(tx)
+
+	reviewed, err := qtx.ReviewBypassRequest(c.Request.Context(), db.ReviewBypassRequestParams{
+		Status:     "approved",
 		ReviewedBy: adminID,
 		AdminNotes: pgtype.Text{String: req.AdminNotes, Valid: req.AdminNotes != ""},
 		ID:         bypassID,
@@ -396,33 +442,32 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		return
 	}
 
-	bypassEvent := "bypass:rejected"
-	if req.Approve {
-		bypassEvent = "bypass:approved"
+	updated, nextStatus, paidDeliveryTask, err := h.completeStationTx(c.Request.Context(), qtx, adminID, reviewed.Station, reviewed.OrderID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusConflict, "station_already_processed")
+		return
 	}
-	sse.Default.Broadcast("user:"+reviewed.RequestedBy.String(), bypassEvent, gin.H{
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	sse.Default.Broadcast("user:"+reviewed.RequestedBy.String(), "bypass:approved", gin.H{
 		"bypassID":      reviewed.ID.String(),
 		"orderID":       reviewed.OrderID.String(),
 		"invoiceNumber": ord.InvoiceNumber,
 		"adminNotes":    req.AdminNotes,
 	})
+	h.broadcastStationCompletion(c.Request.Context(), updated, adminID, reviewed.Station, nextStatus, paidDeliveryTask)
 
-	if req.Approve {
-		// CompleteStationAfterBypass: same optimistic-concurrency status
-		// transition as a normal station completion, but deliberately skips
-		// compareItems and the pending-bypass check — this IS the manual
-		// override those checks exist to gate.
-		h.completeStation(c, adminID, reviewed.Station, reviewed.OrderID)
-		return
-	}
-
-	resp, err := h.toBypassResponse(reviewed)
-	if err != nil {
-		apperr.RespondInternalError(c, err)
-		return
-	}
-	resp.Message = "bypass request rejected"
-	c.JSON(http.StatusOK, resp)
+	resp := toOrderResponse(updated)
+	resp.Message = "station completed successfully"
+	c.JSON(http.StatusOK, SubmitItemsResponse{Success: true, Data: &resp})
 }
 
 func (h *Handler) toBypassResponse(b db.BypassRequest) (BypassResponse, error) {

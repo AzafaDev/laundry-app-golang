@@ -94,19 +94,32 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		ID:           existingCustomer.ID,
 	}
 
-	updatedCustomer, err := h.Queries.UpdateCustomerPassword(c.Request.Context(), updateCustomerPasswordParams)
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+	qtx := h.Queries.WithTx(tx)
+
+	updatedCustomer, err := qtx.UpdateCustomerPassword(c.Request.Context(), updateCustomerPasswordParams)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	if err := h.Queries.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
+	if err := qtx.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	bumpedCustomer, err := h.Queries.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
+	bumpedCustomer, err := qtx.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
 	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
@@ -245,7 +258,15 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 		return
 	}
 
-	updatedCustomer, err := h.Queries.UpdateCustomerEmail(c.Request.Context(), db.UpdateCustomerEmailParams{
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+	qtx := h.Queries.WithTx(tx)
+
+	updatedCustomer, err := qtx.UpdateCustomerEmail(c.Request.Context(), db.UpdateCustomerEmailParams{
 		Email: emailChangeToken.NewEmail,
 		ID:    emailChangeToken.CustomerID,
 	})
@@ -260,7 +281,12 @@ func (h *Handler) VerifyEmailChange(c *gin.Context) {
 		return
 	}
 
-	if err = h.Queries.MarkEmailChangeTokenUsed(c.Request.Context(), emailChangeToken.ID); err != nil {
+	if err = qtx.MarkEmailChangeTokenUsed(c.Request.Context(), emailChangeToken.ID); err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}

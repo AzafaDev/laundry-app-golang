@@ -323,28 +323,46 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+	qtx := h.Queries.WithTx(tx)
+
 	updatedCustomerPasswordParams := db.UpdateCustomerPasswordParams{
 		PasswordHash: pgtype.Text{String: hashedPassword, Valid: true},
 		ID:           passwordResetToken.CustomerID,
 	}
-	updatedCustomer, err := h.Queries.UpdateCustomerPassword(c.Request.Context(), updatedCustomerPasswordParams)
+	updatedCustomer, err := qtx.UpdateCustomerPassword(c.Request.Context(), updatedCustomerPasswordParams)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	if err = h.Queries.MarkPasswordResetTokenUsed(c.Request.Context(), passwordResetToken.ID); err != nil {
+	if err = qtx.MarkPasswordResetTokenUsed(c.Request.Context(), passwordResetToken.ID); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	bumpedCustomer, err := h.Queries.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
+	bumpedCustomer, err := qtx.IncrementCustomerTokenVersion(c.Request.Context(), updatedCustomer.ID)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	if err := h.Queries.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
+	// Revoking refresh tokens and bumping token_version together, atomically
+	// with the password change, closes a real security gap: without this,
+	// a failure between the password update and this point would leave an
+	// attacker's stolen access token valid even though the victim just
+	// "secured" their account by resetting the password.
+	if err := qtx.RevokeRefreshTokensByCustomerID(c.Request.Context(), updatedCustomer.ID); err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}

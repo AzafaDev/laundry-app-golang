@@ -87,9 +87,13 @@ func (a *TestApp) CreateTestEmployee(t *testing.T, role string, outletID pgtype.
 		// Null out those references first so employee deletion never
 		// depends on cleanup ordering across fixtures.
 		_, _ = a.Pool.Exec(ctx, "UPDATE driver_tasks SET driver_id = NULL WHERE driver_id = $1", employee.ID)
-		// order_item_breakdowns.created_by is NOT NULL, so it can't be
-		// nulled out like driver_id above — the referencing rows must go.
+		// order_item_breakdowns.created_by and bypass_requests.requested_by
+		// are NOT NULL, so they can't be nulled out like driver_id above —
+		// the referencing rows must go. bypass_requests.reviewed_by is
+		// nullable, so that one can be cleared instead of deleting the row.
 		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_item_breakdowns WHERE created_by = $1", employee.ID)
+		_, _ = a.Pool.Exec(ctx, "DELETE FROM bypass_requests WHERE requested_by = $1", employee.ID)
+		_, _ = a.Pool.Exec(ctx, "UPDATE bypass_requests SET reviewed_by = NULL WHERE reviewed_by = $1", employee.ID)
 		if err := a.Queries.HardDeleteEmployee(ctx, employee.ID); err != nil {
 			t.Logf("failed to clean up test employee %s: %v", employee.Email, err)
 		}

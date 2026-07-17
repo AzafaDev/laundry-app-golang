@@ -101,27 +101,54 @@ func (h *Handler) resolveOAuthCustomer(c *gin.Context, userInfo *oauthpkg.UserIn
 		return existingCustomer, nil
 	}
 
-	newCustomer, err := h.Queries.CreateOAuthCustomer(ctx, db.CreateOAuthCustomerParams{
+	// CreateOAuthCustomer + CreateSocialAccount must commit atomically: if
+	// the social-account link failed after the customer row was created,
+	// that email would be permanently consumed by an unreachable account
+	// (OAuth-only, so no password, and now no social-account link either —
+	// the real person could never sign up or log in with that email again).
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return db.Customer{}, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := h.Queries.WithTx(tx)
+
+	newCustomer, err := qtx.CreateOAuthCustomer(ctx, db.CreateOAuthCustomerParams{
 		FullName: userInfo.Name,
 		Email:    userInfo.Email,
 	})
-
-	if apphelper.IsUniqueViolation(err) {
-		newCustomer, err = h.Queries.GetCustomerByEmail(ctx, userInfo.Email)
-		if err != nil {
+	if err == nil {
+		if _, err := qtx.CreateSocialAccount(ctx, db.CreateSocialAccountParams{
+			CustomerID:  newCustomer.ID,
+			Provider:    "google",
+			ProviderUid: userInfo.ID,
+		}); err != nil {
 			return db.Customer{}, err
 		}
-	} else if err != nil {
+		if err := tx.Commit(ctx); err != nil {
+			return db.Customer{}, err
+		}
+		return newCustomer, nil
+	}
+
+	if !apphelper.IsUniqueViolation(err) {
 		return db.Customer{}, err
 	}
 
+	// A concurrent signup already created this customer between our checks
+	// above and this attempt — our tx has nothing to commit, so abandon it
+	// (deferred rollback) and just link the social account to that row.
+	existingCustomer, err = h.Queries.GetCustomerByEmail(ctx, userInfo.Email)
+	if err != nil {
+		return db.Customer{}, err
+	}
 	if _, err := h.Queries.CreateSocialAccount(ctx, db.CreateSocialAccountParams{
-		CustomerID:  newCustomer.ID,
+		CustomerID:  existingCustomer.ID,
 		Provider:    "google",
 		ProviderUid: userInfo.ID,
 	}); err != nil {
 		return db.Customer{}, err
 	}
 
-	return newCustomer, nil
+	return existingCustomer, nil
 }

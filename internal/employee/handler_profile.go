@@ -64,7 +64,15 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	updatedEmployee, err := h.Queries.UpdateEmployeePassword(c.Request.Context(), db.UpdateEmployeePasswordParams{
+	tx, err := h.Pool.Begin(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	defer tx.Rollback(c.Request.Context())
+	qtx := h.Queries.WithTx(tx)
+
+	updatedEmployee, err := qtx.UpdateEmployeePassword(c.Request.Context(), db.UpdateEmployeePasswordParams{
 		PasswordHash: pgtype.Text{String: hashedPassword, Valid: true},
 		ID:           existingEmployee.ID,
 	})
@@ -73,13 +81,18 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.Queries.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), updatedEmployee.ID); err != nil {
+	if err := qtx.RevokeEmployeeRefreshTokensByEmployeeID(c.Request.Context(), updatedEmployee.ID); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	bumpedEmployee, err := h.Queries.IncrementEmployeeTokenVersion(c.Request.Context(), updatedEmployee.ID)
+	bumpedEmployee, err := qtx.IncrementEmployeeTokenVersion(c.Request.Context(), updatedEmployee.ID)
 	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
