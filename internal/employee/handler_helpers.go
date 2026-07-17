@@ -3,6 +3,7 @@ package employee
 import (
 	"errors"
 	"laundry-app-with-golang/internal/auth"
+	"laundry-app-with-golang/internal/csrf"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"time"
@@ -123,9 +124,15 @@ func (h *Handler) issueEmployeeTokens(c *gin.Context, employeeID pgtype.UUID, ro
 		return "", "", err
 	}
 
+	csrfToken, err := csrf.GenerateToken()
+	if err != nil {
+		return "", "", err
+	}
+
 	c.SetSameSite(h.cookieSameSite())
 	c.SetCookie("staff_access_token", accessToken, 15*60, "/", "", h.cookieSecure(), true)
 	c.SetCookie("staff_refresh_token", refreshToken, 7*24*60*60, "/", "", h.cookieSecure(), true)
+	c.SetCookie(csrf.CookieName, csrfToken, 7*24*60*60, "/", "", h.cookieSecure(), false)
 
 	return accessToken, refreshToken, nil
 }
