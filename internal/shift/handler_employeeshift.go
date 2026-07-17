@@ -3,6 +3,7 @@ package shift
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"time"
@@ -90,7 +91,7 @@ func (h *Handler) CreateEmployeeShift(c *gin.Context) {
 		Date:       date,
 		IsActive:   req.IsActive,
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "employee_shift_already_assigned")
 		return
 	}

@@ -3,6 +3,7 @@ package employee
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -78,7 +79,7 @@ func (h *Handler) CreateEmployee(c *gin.Context) {
 		OutletID:     outletID,
 	})
 
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}
@@ -227,7 +228,7 @@ func (h *Handler) AssignEmployeeOutlet(c *gin.Context) {
 }
 
 func (h *Handler) ListEmployees(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 	includeDeleted := c.Query("include_deleted") == "true"
 
 	var role pgtype.Text

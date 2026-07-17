@@ -2,6 +2,7 @@ package notification
 
 import (
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"time"
@@ -26,13 +27,13 @@ func toResponse(id pgtype.UUID, title, body, notifType string, relatedEntityID p
 }
 
 func (h *Handler) ListCustomerNotifications(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	rows, err := h.Queries.ListCustomerNotifications(c.Request.Context(), db.ListCustomerNotificationsParams{
 		CustomerID: customerID,
@@ -59,7 +60,7 @@ func (h *Handler) ListCustomerNotifications(c *gin.Context) {
 }
 
 func (h *Handler) GetCustomerUnreadCount(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -75,7 +76,7 @@ func (h *Handler) GetCustomerUnreadCount(c *gin.Context) {
 }
 
 func (h *Handler) MarkCustomerNotificationRead(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -99,7 +100,7 @@ func (h *Handler) MarkCustomerNotificationRead(c *gin.Context) {
 }
 
 func (h *Handler) MarkAllCustomerNotificationsRead(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -114,13 +115,13 @@ func (h *Handler) MarkAllCustomerNotificationsRead(c *gin.Context) {
 }
 
 func (h *Handler) ListEmployeeNotifications(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	rows, err := h.Queries.ListEmployeeNotifications(c.Request.Context(), db.ListEmployeeNotificationsParams{
 		EmployeeID: employeeID,
@@ -147,7 +148,7 @@ func (h *Handler) ListEmployeeNotifications(c *gin.Context) {
 }
 
 func (h *Handler) GetEmployeeUnreadCount(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -163,7 +164,7 @@ func (h *Handler) GetEmployeeUnreadCount(c *gin.Context) {
 }
 
 func (h *Handler) MarkEmployeeNotificationRead(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -187,7 +188,7 @@ func (h *Handler) MarkEmployeeNotificationRead(c *gin.Context) {
 }
 
 func (h *Handler) MarkAllEmployeeNotificationsRead(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return

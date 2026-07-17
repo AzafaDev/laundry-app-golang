@@ -3,6 +3,7 @@ package shift
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func (h *Handler) ListWorkShifts(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	shifts, err := h.Queries.ListWorkShifts(c.Request.Context(), db.ListWorkShiftsParams{
 		Limit:  limit,
@@ -82,7 +83,7 @@ func (h *Handler) CreateWorkShift(c *gin.Context) {
 		Description: pgtype.Text{String: req.Description, Valid: req.Description != ""},
 		IsActive:    req.IsActive,
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}
@@ -132,7 +133,7 @@ func (h *Handler) UpdateWorkShift(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "work_shift_not_found")
 		return
 	}
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}

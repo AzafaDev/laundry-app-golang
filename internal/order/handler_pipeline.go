@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
 	"net/http"
@@ -21,13 +22,13 @@ import (
 // level — the column is NUMERIC(6,2) — this is an app-level business rule
 // carried over as-is, not a bug to fix here).
 func (h *Handler) ProcessOrder(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	callerOutletID, hasOutlet := currentEmployeeOutletID(c)
+	callerOutletID, hasOutlet := apphelper.CurrentEmployeeOutletID(c)
 	if !hasOutlet {
 		apperr.RespondError(c, http.StatusForbidden, "no_outlet_assigned")
 		return
@@ -110,7 +111,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 			return
 		}
 
-		basePrice := numericToFloat64(li.BasePrice)
+		basePrice := apphelper.NumericToFloat64(li.BasePrice)
 		totalPrice += basePrice * item.Quantity
 
 		resolvedItems = append(resolvedItems, resolvedItem{
@@ -153,14 +154,14 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		})
 	}
 
-	totalPrice += numericToFloat64(ord.DeliveryFee)
+	totalPrice += apphelper.NumericToFloat64(ord.DeliveryFee)
 
-	totalPriceNumeric, err := float64ToNumeric(totalPrice)
+	totalPriceNumeric, err := apphelper.Float64ToNumeric(totalPrice)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
-	totalWeightNumeric, err := float64ToNumeric(req.TotalWeightKG)
+	totalWeightNumeric, err := apphelper.Float64ToNumeric(req.TotalWeightKG)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
@@ -176,12 +177,12 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 	qtx := h.Queries.WithTx(tx)
 
 	for _, item := range resolvedItems {
-		quantityNumeric, err := float64ToNumeric(item.quantity)
+		quantityNumeric, err := apphelper.Float64ToNumeric(item.quantity)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
 			return
 		}
-		priceNumeric, err := float64ToNumeric(item.basePrice)
+		priceNumeric, err := apphelper.Float64ToNumeric(item.basePrice)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
 			return
@@ -246,7 +247,7 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID,
 		"Detail pesanan telah diinput",
 		fmt.Sprintf("Pesanan %s: laundry Rp%.0f + ongkir Rp%.0f = total Rp%.0f.",
-			updated.InvoiceNumber, totalPrice-numericToFloat64(updated.DeliveryFee), numericToFloat64(updated.DeliveryFee), totalPrice),
+			updated.InvoiceNumber, totalPrice-apphelper.NumericToFloat64(updated.DeliveryFee), apphelper.NumericToFloat64(updated.DeliveryFee), totalPrice),
 		notification.TypeOrderDetails, updated.ID)
 	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID,
 		"Tagihan Pembayaran",

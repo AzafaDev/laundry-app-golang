@@ -6,25 +6,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/sse"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-// isUniqueViolation reports whether err is a Postgres unique-constraint
-// violation.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
-}
 
 const (
 	// StatusWaitingPayment/StatusReadyForDelivery mirror internal/order's
@@ -34,34 +25,6 @@ const (
 	orderStatusWaitingPayment   = "waiting_payment"
 	orderStatusReadyForDelivery = "ready_for_delivery"
 )
-
-func currentCustomerID(c *gin.Context) (pgtype.UUID, error) {
-	var customerUUID pgtype.UUID
-
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		return customerUUID, errors.New("something went wrong")
-	}
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		return customerUUID, errors.New("something went wrong")
-	}
-	if err := customerUUID.Scan(customerIDStr); err != nil {
-		return customerUUID, err
-	}
-	return customerUUID, nil
-}
-
-func numericToFloat64(n pgtype.Numeric) float64 {
-	f, _ := n.Float64Value()
-	return f.Float64
-}
-
-func float64ToNumeric(v float64) (pgtype.Numeric, error) {
-	var n pgtype.Numeric
-	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
-	return n, err
-}
 
 // verifySignature replicates Midtrans's documented SHA-512 signature
 // scheme: sha512(order_id + status_code + gross_amount + server_key). The
@@ -154,7 +117,7 @@ func applyPaymentStatus(ctx context.Context, qtx *db.Queries, pay db.Payment, ne
 	if _, err := qtx.CreateDriverTask(ctx, db.CreateDriverTaskParams{
 		OrderID:  updatedOrder.ID,
 		TaskType: "delivery",
-	}); err != nil && !isUniqueViolation(err) {
+	}); err != nil && !apphelper.IsUniqueViolation(err) {
 		return db.Payment{}, err
 	}
 
@@ -197,7 +160,7 @@ func toPaymentResponse(p db.Payment) PaymentResponse {
 	resp := PaymentResponse{
 		ID:            p.ID.String(),
 		OrderID:       p.OrderID.String(),
-		Amount:        numericToFloat64(p.Amount),
+		Amount:        apphelper.NumericToFloat64(p.Amount),
 		PaymentMethod: p.PaymentMethod,
 		GatewayName:   p.GatewayName.String,
 		Status:        p.Status,

@@ -3,6 +3,7 @@ package customer
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -24,12 +25,12 @@ func (h *Handler) CreateAddress(c *gin.Context) {
 		return
 	}
 
-	latitude, err := float64ToNumeric(req.Latitude)
+	latitude, err := apphelper.Float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	longitude, err := float64ToNumeric(req.Longitude)
+	longitude, err := apphelper.Float64ToNumeric(req.Longitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -174,12 +175,12 @@ func (h *Handler) UpdateAddress(c *gin.Context) {
 		return
 	}
 
-	latitude, err := float64ToNumeric(req.Latitude)
+	latitude, err := apphelper.Float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	longitude, err := float64ToNumeric(req.Longitude)
+	longitude, err := apphelper.Float64ToNumeric(req.Longitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

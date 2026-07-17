@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	oauthpkg "laundry-app-with-golang/internal/oauth"
@@ -105,7 +106,7 @@ func (h *Handler) resolveOAuthCustomer(c *gin.Context, userInfo *oauthpkg.UserIn
 		Email:    userInfo.Email,
 	})
 
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		newCustomer, err = h.Queries.GetCustomerByEmail(ctx, userInfo.Email)
 		if err != nil {
 			return db.Customer{}, err

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"sort"
@@ -138,5 +139,5 @@ func (h *Handler) ExportEmployeePerformanceReport(c *gin.Context) {
 	}
 
 	filename := fmt.Sprintf("employee_performance_%s.csv", time.Now().Format("2006-01-02"))
-	writeCSV(c, filename, header, rows, true)
+	apphelper.WriteCSV(c, "text/csv; charset=utf-8", filename, header, rows, true)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/shift"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 )
 
 func (h *Handler) ListAttendanceReport(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	filter := reportFilterFromQuery(c)
 
@@ -102,7 +103,7 @@ func (h *Handler) ExportAttendanceReport(c *gin.Context) {
 	}
 
 	filename := fmt.Sprintf("attendance_report_%s.csv", time.Now().Format("2006-01-02"))
-	writeCSV(c, filename, header, rows, false)
+	apphelper.WriteCSV(c, "text/csv", filename, header, rows, false)
 }
 
 type reportFilter struct {
@@ -122,8 +123,8 @@ type reportFilter struct {
 func reportFilterFromQuery(c *gin.Context) reportFilter {
 	var f reportFilter
 
-	if currentEmployeeRole(c) == "outlet_admin" {
-		if outletID, ok := currentEmployeeOutletID(c); ok {
+	if apphelper.CurrentEmployeeRole(c) == "outlet_admin" {
+		if outletID, ok := apphelper.CurrentEmployeeOutletID(c); ok {
 			f.outletID = outletID
 		}
 	} else if v := c.Query("outlet_id"); v != "" {

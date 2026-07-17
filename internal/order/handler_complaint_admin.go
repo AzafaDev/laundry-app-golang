@@ -3,6 +3,7 @@ package order
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/sse"
@@ -26,8 +27,8 @@ var validComplaintTransitions = map[string][]string{
 // complaint endpoints: outlet_admin is scoped to their own outlet;
 // super_admin is unscoped unless they explicitly pass ?outlet_id=.
 func complaintListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
-	if currentEmployeeRole(c) == "outlet_admin" {
-		outletID, ok := currentEmployeeOutletID(c)
+	if apphelper.CurrentEmployeeRole(c) == "outlet_admin" {
+		outletID, ok := apphelper.CurrentEmployeeOutletID(c)
 		return outletID, ok
 	}
 	if v := c.Query("outlet_id"); v != "" {
@@ -40,7 +41,7 @@ func complaintListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
 }
 
 func (h *Handler) ListComplaints(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	outletID, scoped := complaintListFilter(c)
 	outletFilter := pgtype.UUID{Valid: false}
@@ -160,7 +161,7 @@ func (h *Handler) GetComplaintByID(c *gin.Context) {
 }
 
 func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return

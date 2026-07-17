@@ -2,6 +2,7 @@ package customer
 
 import (
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"log"
@@ -49,7 +50,7 @@ func (h *Handler) Register(c *gin.Context) {
 		Phone:        pgtype.Text{String: req.Phone, Valid: true},
 	})
 
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "email_already_registered")
 		return
 	}

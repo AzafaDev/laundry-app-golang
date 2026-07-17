@@ -8,13 +8,9 @@ import (
 	"laundry-app-with-golang/internal/shift"
 	"math"
 	"net/http"
-	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -37,41 +33,6 @@ const (
 	checkinToleranceBeforeShift = 15 * time.Minute
 )
 
-// isUniqueViolation reports whether err is a Postgres unique-constraint
-// violation (e.g. duplicate check-in for the same employee/day).
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
-}
-
-func parsePagination(c *gin.Context) (limit, offset int32) {
-	limit = defaultPageLimit
-	if v, err := strconv.Atoi(c.Query("limit")); err == nil && v > 0 {
-		limit = int32(v)
-		if limit > maxPageLimit {
-			limit = maxPageLimit
-		}
-	}
-
-	offset = 0
-	if v, err := strconv.Atoi(c.Query("offset")); err == nil && v > 0 {
-		offset = int32(v)
-	}
-
-	return limit, offset
-}
-
-func float64ToNumeric(v float64) (pgtype.Numeric, error) {
-	var n pgtype.Numeric
-	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
-	return n, err
-}
-
-func numericToFloat64(n pgtype.Numeric) float64 {
-	f, _ := n.Float64Value()
-	return f.Float64
-}
-
 // haversineKM returns the great-circle distance in kilometers between two
 // lat/long points. Duplicated from internal/order/handler_helpers.go, which
 // keeps it unexported/package-private — tracked as reuse debt (ticket #12).
@@ -88,38 +49,6 @@ func haversineKM(lat1, lon1, lat2, lon2 float64) float64 {
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
 	return earthRadiusKM * c
-}
-
-func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
-	var employeeUUID pgtype.UUID
-
-	employeeIDVal, ok := c.Get("employee_id")
-	if !ok {
-		return employeeUUID, errors.New("something went wrong")
-	}
-	employeeIDStr, ok := employeeIDVal.(string)
-	if !ok {
-		return employeeUUID, errors.New("something went wrong")
-	}
-	if err := employeeUUID.Scan(employeeIDStr); err != nil {
-		return employeeUUID, err
-	}
-	return employeeUUID, nil
-}
-
-func currentEmployeeRole(c *gin.Context) string {
-	val, _ := c.Get("role")
-	role, _ := val.(string)
-	return role
-}
-
-func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
-	val, exists := c.Get("outlet_id")
-	if !exists {
-		return outletID, false
-	}
-	outletID, ok = val.(pgtype.UUID)
-	return outletID, ok && outletID.Valid
 }
 
 // resolveEmployeeOutlet fetches the outlet assigned to an employee (for

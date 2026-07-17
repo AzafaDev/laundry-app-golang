@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +23,7 @@ import (
 // CreateTransaction creates (or re-creates — see UpsertPaymentForOrder's
 // doc comment) a Midtrans Snap transaction for an order the caller owns.
 func (h *Handler) CreateTransaction(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -47,7 +48,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	totalPrice := numericToFloat64(ord.TotalPrice)
+	totalPrice := apphelper.NumericToFloat64(ord.TotalPrice)
 	if totalPrice <= 0 {
 		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_total")
 		return
@@ -102,7 +103,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	amountNumeric, err := float64ToNumeric(totalPrice)
+	amountNumeric, err := apphelper.Float64ToNumeric(totalPrice)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
@@ -130,7 +131,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 // GetPaymentStatus returns the payment row as last recorded — no gateway
 // call.
 func (h *Handler) GetPaymentStatus(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -170,7 +171,7 @@ func (h *Handler) GetPaymentStatus(c *gin.Context) {
 // Midtrans directly and reuses resolvePaymentStatus/applyPaymentStatus, the
 // exact same logic path the webhook uses, so the two can never diverge.
 func (h *Handler) SyncPaymentStatus(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -277,7 +278,7 @@ func (h *Handler) HandleWebhook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid gross_amount"})
 		return
 	}
-	if math.Round(webhookGrossAmount) != math.Round(numericToFloat64(payment.Amount)) {
+	if math.Round(webhookGrossAmount) != math.Round(apphelper.NumericToFloat64(payment.Amount)) {
 		apperr.RespondError(c, http.StatusForbidden, "amount_mismatch")
 		return
 	}

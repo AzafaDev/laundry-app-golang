@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
@@ -38,7 +39,7 @@ func respondEligibilityError(c *gin.Context, err error) {
 // assertStationAccess rejects the request unless the caller's role is the
 // one allowed to operate on :station.
 func assertStationAccess(c *gin.Context, station string) bool {
-	role := currentEmployeeRole(c)
+	role := apphelper.CurrentEmployeeRole(c)
 	allowed, ok := stationForRole[role]
 	if !ok || allowed != station {
 		apperr.RespondError(c, http.StatusForbidden, "station_access_denied")
@@ -62,7 +63,7 @@ func (h *Handler) GetStationOrders(c *gin.Context) {
 		return
 	}
 
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -117,7 +118,7 @@ func (h *Handler) expectedItems(ctx context.Context, orderID pgtype.UUID) (break
 			return nil, nil, err
 		}
 		if li.Unit == "pcs" {
-			satuan[item.LaundryItemID.String()] = int32(numericToFloat64(item.Quantity))
+			satuan[item.LaundryItemID.String()] = int32(apphelper.NumericToFloat64(item.Quantity))
 		}
 	}
 
@@ -197,7 +198,7 @@ func (h *Handler) SubmitItems(c *gin.Context) {
 		return
 	}
 
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -253,7 +254,7 @@ func (h *Handler) CompleteStation(c *gin.Context) {
 		return
 	}
 
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -324,7 +325,7 @@ func (h *Handler) completeStation(c *gin.Context, employeeID pgtype.UUID, statio
 		if _, err := qtx.CreateDriverTask(c.Request.Context(), db.CreateDriverTaskParams{
 			OrderID:  orderID,
 			TaskType: "delivery",
-		}); err != nil && !isUniqueViolation(err) {
+		}); err != nil && !apphelper.IsUniqueViolation(err) {
 			apperr.RespondInternalError(c, err)
 			return
 		}

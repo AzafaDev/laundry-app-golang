@@ -3,6 +3,7 @@ package clothingtype
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func (h *Handler) ListClothingTypes(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	types, err := h.Queries.ListClothingTypes(c.Request.Context(), db.ListClothingTypesParams{
 		Limit:  limit,
@@ -68,7 +69,7 @@ func (h *Handler) CreateClothingType(c *gin.Context) {
 		Name:     req.Name,
 		IsActive: req.IsActive,
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}
@@ -104,7 +105,7 @@ func (h *Handler) UpdateClothingType(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "clothing_type_not_found")
 		return
 	}
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}

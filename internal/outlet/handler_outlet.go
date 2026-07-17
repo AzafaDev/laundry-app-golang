@@ -3,6 +3,7 @@ package outlet
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -12,7 +13,7 @@ import (
 )
 
 func (h *Handler) ListOutlets(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	outlets, err := h.Queries.ListOutlets(c.Request.Context(), db.ListOutletsParams{
 		Limit:  limit,
@@ -68,17 +69,17 @@ func (h *Handler) CreateOutlet(c *gin.Context) {
 		req.ServiceRadiusKM = defaultServiceRadiusKM
 	}
 
-	latitude, err := float64ToNumeric(req.Latitude)
+	latitude, err := apphelper.Float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	longitude, err := float64ToNumeric(req.Longitude)
+	longitude, err := apphelper.Float64ToNumeric(req.Longitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	serviceRadiusKM, err := float64ToNumeric(req.ServiceRadiusKM)
+	serviceRadiusKM, err := apphelper.Float64ToNumeric(req.ServiceRadiusKM)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -119,17 +120,17 @@ func (h *Handler) UpdateOutlet(c *gin.Context) {
 		req.ServiceRadiusKM = defaultServiceRadiusKM
 	}
 
-	latitude, err := float64ToNumeric(req.Latitude)
+	latitude, err := apphelper.Float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	longitude, err := float64ToNumeric(req.Longitude)
+	longitude, err := apphelper.Float64ToNumeric(req.Longitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	serviceRadiusKM, err := float64ToNumeric(req.ServiceRadiusKM)
+	serviceRadiusKM, err := apphelper.Float64ToNumeric(req.ServiceRadiusKM)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

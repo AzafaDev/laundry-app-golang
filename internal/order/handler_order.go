@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/sse"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +18,7 @@ import (
 )
 
 func (h *Handler) CreateOrder(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -68,19 +68,19 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	outlet, distanceKM, ok := nearestOutlet(activeOutlets, numericToFloat64(address.Latitude), numericToFloat64(address.Longitude))
+	outlet, distanceKM, ok := nearestOutlet(activeOutlets, apphelper.NumericToFloat64(address.Latitude), apphelper.NumericToFloat64(address.Longitude))
 	if !ok {
 		apperr.RespondError(c, http.StatusBadRequest, "no_outlet_in_range")
 		return
 	}
 
-	deliveryFee, err := float64ToNumeric(calculateDeliveryFee(distanceKM))
+	deliveryFee, err := apphelper.Float64ToNumeric(calculateDeliveryFee(distanceKM))
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	totalPrice, err := float64ToNumeric(0)
+	totalPrice, err := apphelper.Float64ToNumeric(0)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
@@ -152,13 +152,13 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 }
 
 func (h *Handler) ListOrders(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	status := pgtype.Text{Valid: false}
 	if v := c.Query("status"); v != "" {
@@ -225,7 +225,7 @@ func (h *Handler) ListOrders(c *gin.Context) {
 // so a customer confirming at the same moment the cron processes this order
 // must not silently double-transition or double-write history.
 func (h *Handler) CompleteOrder(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -314,23 +314,6 @@ const (
 	maxPageLimit     = 100
 )
 
-func parsePagination(c *gin.Context) (limit, offset int32) {
-	limit = defaultPageLimit
-	if v, err := strconv.Atoi(c.Query("limit")); err == nil && v > 0 {
-		limit = int32(v)
-		if limit > maxPageLimit {
-			limit = maxPageLimit
-		}
-	}
-
-	offset = 0
-	if v, err := strconv.Atoi(c.Query("offset")); err == nil && v > 0 {
-		offset = int32(v)
-	}
-
-	return limit, offset
-}
-
 func toOrderResponse(o db.Order) OrderResponse {
 	return OrderResponse{
 		ID:              o.ID.String(),
@@ -339,8 +322,8 @@ func toOrderResponse(o db.Order) OrderResponse {
 		PickupAddressID: o.PickupAddressID.String(),
 		Status:          o.Status,
 		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
-		DeliveryFee:     numericToFloat64(o.DeliveryFee),
-		TotalPrice:      numericToFloat64(o.TotalPrice),
+		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
 	}
 }

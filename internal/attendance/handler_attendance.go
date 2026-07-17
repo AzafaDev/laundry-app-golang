@@ -3,6 +3,7 @@ package attendance
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/shift"
 	"laundry-app-with-golang/internal/sse"
@@ -15,7 +16,7 @@ import (
 )
 
 func (h *Handler) CheckIn(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -55,18 +56,18 @@ func (h *Handler) CheckIn(c *gin.Context) {
 		return
 	}
 
-	distanceKM := haversineKM(numericToFloat64(outlet.Latitude), numericToFloat64(outlet.Longitude), req.Latitude, req.Longitude)
+	distanceKM := haversineKM(apphelper.NumericToFloat64(outlet.Latitude), apphelper.NumericToFloat64(outlet.Longitude), req.Latitude, req.Longitude)
 	if distanceKM*1000 > float64(h.Config.CheckinRadiusMeters) {
 		apperr.RespondError(c, http.StatusBadRequest, "outside_geofence")
 		return
 	}
 
-	checkInLat, err := float64ToNumeric(req.Latitude)
+	checkInLat, err := apphelper.Float64ToNumeric(req.Latitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	checkInLon, err := float64ToNumeric(req.Longitude)
+	checkInLon, err := apphelper.Float64ToNumeric(req.Longitude)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -93,7 +94,7 @@ func (h *Handler) CheckIn(c *gin.Context) {
 		LateMinutes:      pgtype.Int4{Int32: lateMinutes, Valid: true},
 		Status:           pgtype.Text{String: status, Valid: true},
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "already_checked_in")
 		return
 	}
@@ -121,7 +122,7 @@ func (h *Handler) CheckIn(c *gin.Context) {
 }
 
 func (h *Handler) CheckOut(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -171,14 +172,14 @@ func (h *Handler) CheckOut(c *gin.Context) {
 	// never validated against the outlet radius.
 	var checkOutLat, checkOutLon pgtype.Numeric
 	if req.Latitude != nil {
-		checkOutLat, err = float64ToNumeric(*req.Latitude)
+		checkOutLat, err = apphelper.Float64ToNumeric(*req.Latitude)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 	}
 	if req.Longitude != nil {
-		checkOutLon, err = float64ToNumeric(*req.Longitude)
+		checkOutLon, err = apphelper.Float64ToNumeric(*req.Longitude)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -224,13 +225,13 @@ func (h *Handler) CheckOut(c *gin.Context) {
 }
 
 func (h *Handler) MyAttendanceLogs(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	logs, err := h.Queries.ListAttendancesByEmployee(c.Request.Context(), db.ListAttendancesByEmployeeParams{
 		EmployeeID: employeeID,
@@ -257,7 +258,7 @@ func (h *Handler) MyAttendanceLogs(c *gin.Context) {
 }
 
 func (h *Handler) TodayAttendance(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -281,7 +282,7 @@ func (h *Handler) TodayAttendance(c *gin.Context) {
 }
 
 func (h *Handler) CurrentShift(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return

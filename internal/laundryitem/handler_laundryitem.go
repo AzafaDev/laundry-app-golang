@@ -3,6 +3,7 @@ package laundryitem
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 
@@ -32,7 +33,7 @@ func validateRequest(req *LaundryItemRequest) string {
 }
 
 func (h *Handler) ListLaundryItems(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	items, err := h.Queries.ListLaundryItems(c.Request.Context(), db.ListLaundryItemsParams{
 		Limit:  limit,
@@ -89,7 +90,7 @@ func (h *Handler) CreateLaundryItem(c *gin.Context) {
 		return
 	}
 
-	basePrice, err := float64ToNumeric(req.BasePrice)
+	basePrice, err := apphelper.Float64ToNumeric(req.BasePrice)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -102,7 +103,7 @@ func (h *Handler) CreateLaundryItem(c *gin.Context) {
 		BasePrice:   basePrice,
 		IsActive:    req.IsActive,
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}
@@ -134,7 +135,7 @@ func (h *Handler) UpdateLaundryItem(c *gin.Context) {
 		return
 	}
 
-	basePrice, err := float64ToNumeric(req.BasePrice)
+	basePrice, err := apphelper.Float64ToNumeric(req.BasePrice)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -152,7 +153,7 @@ func (h *Handler) UpdateLaundryItem(c *gin.Context) {
 		apperr.RespondError(c, http.StatusNotFound, "laundry_item_not_found")
 		return
 	}
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "name_already_exists")
 		return
 	}

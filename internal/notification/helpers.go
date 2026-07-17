@@ -2,12 +2,9 @@ package notification
 
 import (
 	"context"
-	"errors"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/sse"
-	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -15,57 +12,6 @@ const (
 	defaultPageLimit = 20
 	maxPageLimit     = 100
 )
-
-var errNoSession = errors.New("something went wrong")
-
-func parsePagination(c *gin.Context) (limit, offset int32) {
-	limit = defaultPageLimit
-	if v, err := strconv.Atoi(c.Query("limit")); err == nil && v > 0 {
-		limit = int32(v)
-		if limit > maxPageLimit {
-			limit = maxPageLimit
-		}
-	}
-
-	offset = 0
-	if v, err := strconv.Atoi(c.Query("offset")); err == nil && v > 0 {
-		offset = int32(v)
-	}
-
-	return limit, offset
-}
-
-func currentCustomerID(c *gin.Context) (pgtype.UUID, error) {
-	var id pgtype.UUID
-	val, ok := c.Get("customer_id")
-	if !ok {
-		return id, errNoSession
-	}
-	str, ok := val.(string)
-	if !ok {
-		return id, errNoSession
-	}
-	if err := id.Scan(str); err != nil {
-		return id, err
-	}
-	return id, nil
-}
-
-func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
-	var id pgtype.UUID
-	val, ok := c.Get("employee_id")
-	if !ok {
-		return id, errNoSession
-	}
-	str, ok := val.(string)
-	if !ok {
-		return id, errNoSession
-	}
-	if err := id.Scan(str); err != nil {
-		return id, err
-	}
-	return id, nil
-}
 
 // NotifyCustomer creates a single in-app notification for a customer. qtx
 // may be transaction-scoped or the package-level *db.Queries — the caller

@@ -1,6 +1,7 @@
 package report
 
 import (
+	"laundry-app-with-golang/internal/apphelper"
 	"strconv"
 	"time"
 
@@ -8,27 +9,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func currentEmployeeRole(c *gin.Context) string {
-	val, _ := c.Get("role")
-	role, _ := val.(string)
-	return role
-}
-
-func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
-	val, exists := c.Get("outlet_id")
-	if !exists {
-		return outletID, false
-	}
-	outletID, ok = val.(pgtype.UUID)
-	return outletID, ok && outletID.Valid
-}
-
 // reportOutletFilter mirrors complaintListFilter (internal/order, ticket
 // #7): outlet_admin is forced to their own outlet; super_admin is unscoped
 // unless they explicitly pass ?outlet_id=.
 func reportOutletFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
-	if currentEmployeeRole(c) == "outlet_admin" {
-		outletID, ok := currentEmployeeOutletID(c)
+	if apphelper.CurrentEmployeeRole(c) == "outlet_admin" {
+		outletID, ok := apphelper.CurrentEmployeeOutletID(c)
 		return outletID, ok
 	}
 	if v := c.Query("outlet_id"); v != "" {
@@ -52,11 +38,6 @@ func dateRangeFilter(c *gin.Context) (dateFrom, dateTo pgtype.Timestamptz) {
 		}
 	}
 	return dateFrom, dateTo
-}
-
-func numericToFloat64(n pgtype.Numeric) float64 {
-	f, _ := n.Float64Value()
-	return f.Float64
 }
 
 func formatMoney(v float64) string {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/sse"
@@ -61,7 +62,7 @@ func actualItemMaps(req CreateBypassRequest) (breakdown, satuan map[string]int32
 }
 
 func (h *Handler) CreateBypassRequest(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -72,7 +73,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		return
 	}
 
-	role := currentEmployeeRole(c)
+	role := apphelper.CurrentEmployeeRole(c)
 	station, ok := stationForRole[role]
 	if !ok {
 		apperr.RespondError(c, http.StatusForbidden, "station_access_denied")
@@ -199,7 +200,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 }
 
 func (h *Handler) GetBypassByOrder(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -239,15 +240,15 @@ func (h *Handler) GetBypassByOrder(c *gin.Context) {
 // admin-facing list endpoints: outlet_admin is scoped to their own outlet,
 // super_admin sees every outlet unfiltered.
 func bypassListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
-	if currentEmployeeRole(c) != "outlet_admin" {
+	if apphelper.CurrentEmployeeRole(c) != "outlet_admin" {
 		return pgtype.UUID{}, false
 	}
-	outletID, ok := currentEmployeeOutletID(c)
+	outletID, ok := apphelper.CurrentEmployeeOutletID(c)
 	return outletID, ok
 }
 
 func (h *Handler) ListBypassRequests(c *gin.Context) {
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	outletID, scoped := bypassListFilter(c)
 	status := pgtype.Text{Valid: false}
@@ -331,13 +332,13 @@ func (h *Handler) GetBypassRequest(c *gin.Context) {
 }
 
 func (h *Handler) ReviewBypassRequest(c *gin.Context) {
-	adminID, err := currentEmployeeID(c)
+	adminID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	adminOutletID, hasOutlet := currentEmployeeOutletID(c)
+	adminOutletID, hasOutlet := apphelper.CurrentEmployeeOutletID(c)
 	if !hasOutlet {
 		apperr.RespondError(c, http.StatusForbidden, "no_outlet_assigned")
 		return

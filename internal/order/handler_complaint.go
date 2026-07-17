@@ -3,6 +3,7 @@ package order
 import (
 	"errors"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/sse"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 )
 
 func (h *Handler) CreateComplaint(c *gin.Context) {
-	customerID, err := currentCustomerID(c)
+	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -61,7 +62,7 @@ func (h *Handler) CreateComplaint(c *gin.Context) {
 		Description:   req.Description,
 		PhotoUrls:     req.PhotoURLs,
 	})
-	if isUniqueViolation(err) {
+	if apphelper.IsUniqueViolation(err) {
 		apperr.RespondError(c, http.StatusConflict, "complaint_already_exists")
 		return
 	}

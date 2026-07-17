@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
 	"time"
@@ -60,7 +61,7 @@ func (h *Handler) fetchSalesReport(ctx context.Context, groupBy string, outletID
 	format := groupByPeriodFormat(groupBy)
 	chart := make([]SalesReportPeriod, 0, len(rows))
 	for _, r := range rows {
-		income := numericToFloat64(r.Income)
+		income := apphelper.NumericToFloat64(r.Income)
 		var avg float64
 		if r.OrderCount > 0 {
 			avg = income / float64(r.OrderCount)
@@ -73,7 +74,7 @@ func (h *Handler) fetchSalesReport(ctx context.Context, groupBy string, outletID
 		})
 	}
 
-	totalIncome := numericToFloat64(summary.TotalIncome)
+	totalIncome := apphelper.NumericToFloat64(summary.TotalIncome)
 	resp := SalesReportResponse{
 		Summary: SalesReportSummary{
 			TotalIncome: totalIncome,
@@ -145,5 +146,5 @@ func (h *Handler) ExportSalesReport(c *gin.Context) {
 	})
 
 	filename := fmt.Sprintf("sales_report_%s.csv", time.Now().Format("2006-01-02"))
-	writeCSV(c, filename, header, rows, true)
+	apphelper.WriteCSV(c, "text/csv; charset=utf-8", filename, header, rows, true)
 }

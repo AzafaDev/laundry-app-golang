@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"laundry-app-with-golang/internal/apperr"
+	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/sse"
@@ -33,8 +34,8 @@ func (h *Handler) taskDistanceKM(ctx context.Context, ord db.Order) (float64, er
 	}
 
 	km := haversineKM(
-		numericToFloat64(outlet.Latitude), numericToFloat64(outlet.Longitude),
-		numericToFloat64(addr.Latitude), numericToFloat64(addr.Longitude),
+		apphelper.NumericToFloat64(outlet.Latitude), apphelper.NumericToFloat64(outlet.Longitude),
+		apphelper.NumericToFloat64(addr.Latitude), apphelper.NumericToFloat64(addr.Longitude),
 	)
 	return math.Round(km*10) / 10, nil
 }
@@ -74,7 +75,7 @@ func (h *Handler) toDriverTaskResponse(ctx context.Context, t db.DriverTask, wit
 }
 
 func (h *Handler) listAvailableDriverTasks(c *gin.Context, taskType string) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -113,7 +114,7 @@ func (h *Handler) GetAvailableDeliveries(c *gin.Context) {
 }
 
 func (h *Handler) GetActiveTask(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -143,7 +144,7 @@ func (h *Handler) GetActiveTask(c *gin.Context) {
 // transaction (UPDATE ... WHERE status='available' AND driver_id IS NULL)
 // — two drivers racing the same task must yield exactly one success.
 func (h *Handler) ClaimTask(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -264,7 +265,7 @@ func (h *Handler) ClaimTask(c *gin.Context) {
 // (status matches what this task type expects) — mirroring TS's
 // runCompleteTransaction exactly rather than merging them into one guard.
 func (h *Handler) CompleteTask(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
@@ -380,13 +381,13 @@ func (h *Handler) CompleteTask(c *gin.Context) {
 }
 
 func (h *Handler) GetTaskHistory(c *gin.Context) {
-	employeeID, err := currentEmployeeID(c)
+	employeeID, err := apphelper.CurrentEmployeeID(c)
 	if err != nil {
 		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
 		return
 	}
 
-	limit, offset := parsePagination(c)
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
 	tasks, err := h.Queries.ListDriverTaskHistory(c.Request.Context(), db.ListDriverTaskHistoryParams{
 		DriverID: employeeID,

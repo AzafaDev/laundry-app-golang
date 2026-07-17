@@ -4,18 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
 	"math"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -50,86 +47,6 @@ func assertDriverEligibility(ctx context.Context, queries *db.Queries, employeeI
 	return outletID, nil
 }
 
-// isUniqueViolation reports whether err is a Postgres unique-constraint
-// violation (e.g. duplicate invoice number, duplicate complaint).
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
-}
-
-// currentCustomerID reads the "customer_id" set by the auth middleware and
-// converts it into a pgtype.UUID.
-func currentCustomerID(c *gin.Context) (pgtype.UUID, error) {
-	var customerUUID pgtype.UUID
-
-	customerIDVal, ok := c.Get("customer_id")
-	if !ok {
-		return customerUUID, errors.New("something went wrong")
-	}
-
-	customerIDStr, ok := customerIDVal.(string)
-	if !ok {
-		return customerUUID, errors.New("something went wrong")
-	}
-
-	if err := customerUUID.Scan(customerIDStr); err != nil {
-		return customerUUID, err
-	}
-
-	return customerUUID, nil
-}
-
-// currentEmployeeID reads the "employee_id" set by EmployeeAuthMiddleware
-// and converts it into a pgtype.UUID.
-func currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
-	var employeeUUID pgtype.UUID
-
-	employeeIDVal, ok := c.Get("employee_id")
-	if !ok {
-		return employeeUUID, errors.New("something went wrong")
-	}
-
-	employeeIDStr, ok := employeeIDVal.(string)
-	if !ok {
-		return employeeUUID, errors.New("something went wrong")
-	}
-
-	if err := employeeUUID.Scan(employeeIDStr); err != nil {
-		return employeeUUID, err
-	}
-
-	return employeeUUID, nil
-}
-
-// currentEmployeeOutletID reads the "outlet_id" set by EmployeeAuthMiddleware.
-// ok is false when the caller has no outlet assigned (e.g. super_admin).
-func currentEmployeeOutletID(c *gin.Context) (outletID pgtype.UUID, ok bool) {
-	val, exists := c.Get("outlet_id")
-	if !exists {
-		return outletID, false
-	}
-	outletID, ok = val.(pgtype.UUID)
-	return outletID, ok && outletID.Valid
-}
-
-// currentEmployeeRole reads the "role" set by EmployeeAuthMiddleware.
-func currentEmployeeRole(c *gin.Context) string {
-	val, _ := c.Get("role")
-	role, _ := val.(string)
-	return role
-}
-
-func numericToFloat64(n pgtype.Numeric) float64 {
-	f, _ := n.Float64Value()
-	return f.Float64
-}
-
-func float64ToNumeric(v float64) (pgtype.Numeric, error) {
-	var n pgtype.Numeric
-	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
-	return n, err
-}
-
 // haversineKM returns the great-circle distance in kilometers between two
 // lat/long points.
 func haversineKM(lat1, lon1, lat2, lon2 float64) float64 {
@@ -154,8 +71,8 @@ func nearestOutlet(outlets []db.Outlet, pickupLat, pickupLon float64) (outlet db
 	bestDistance := math.MaxFloat64
 
 	for _, o := range outlets {
-		distance := haversineKM(pickupLat, pickupLon, numericToFloat64(o.Latitude), numericToFloat64(o.Longitude))
-		radius := numericToFloat64(o.ServiceRadiusKm)
+		distance := haversineKM(pickupLat, pickupLon, apphelper.NumericToFloat64(o.Latitude), apphelper.NumericToFloat64(o.Longitude))
+		radius := apphelper.NumericToFloat64(o.ServiceRadiusKm)
 
 		if distance <= radius && distance < bestDistance {
 			bestDistance = distance
@@ -196,7 +113,7 @@ func createOrderWithUniqueInvoice(ctx context.Context, qtx *db.Queries, params d
 		if err == nil {
 			return created, nil
 		}
-		if !isUniqueViolation(err) {
+		if !apphelper.IsUniqueViolation(err) {
 			return db.Order{}, err
 		}
 		lastErr = err

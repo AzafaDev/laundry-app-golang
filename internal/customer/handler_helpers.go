@@ -3,24 +3,15 @@ package customer
 import (
 	"context"
 	"errors"
+	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/auth"
 	db "laundry-app-with-golang/internal/db/generated"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-// isUniqueViolation reports whether err is a Postgres unique-constraint
-// violation (e.g. duplicate email).
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation
-}
 
 func (h *Handler) cookieSecure() bool {
 	return h.Config.GoEnv == "production"
@@ -110,20 +101,6 @@ func (h *Handler) setPrimaryAddress(ctx context.Context, customerID, addressID p
 	return tx.Commit(ctx)
 }
 
-// float64ToNumeric converts a float64 into a pgtype.Numeric. pgx only
-// accepts a string representation when scanning into Numeric, so we format
-// the float ourselves rather than relying on a direct Scan(float64).
-func float64ToNumeric(v float64) (pgtype.Numeric, error) {
-	var n pgtype.Numeric
-	err := n.Scan(strconv.FormatFloat(v, 'f', -1, 64))
-	return n, err
-}
-
-func numericToFloat64(n pgtype.Numeric) float64 {
-	f, _ := n.Float64Value()
-	return f.Float64
-}
-
 // toAddressResponse builds an AddressResponse from scalar fields rather than
 // a single struct, because sqlc generates a distinct row type per query
 // (CreateAddressRow, UpdateAddressRow, ListAddressesRow, ...) even though
@@ -150,8 +127,8 @@ func toAddressResponse(
 		City:       cityName,
 		District:   districtName,
 		PostalCode: postalCode.String,
-		Latitude:   numericToFloat64(latitude),
-		Longitude:  numericToFloat64(longitude),
+		Latitude:   apphelper.NumericToFloat64(latitude),
+		Longitude:  apphelper.NumericToFloat64(longitude),
 		IsPrimary:  isPrimary,
 	}
 }
