@@ -74,9 +74,17 @@ func Middleware(l *Limiter, skipSuccessful bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limiter := l.get(c.ClientIP())
 
-		res := limiter.Reserve()
-		if !res.OK() || res.Delay() > 0 {
-			res.Cancel()
+		// Pin one timestamp and reuse it for Reserve/Delay/Cancel below.
+		// Reservation.CancelAt(t) is a no-op once t is after the
+		// reservation's timeToAct, which for a zero-delay reservation is
+		// "immediately" — even the few nanoseconds between Reserve() and a
+		// later Cancel() (after the handler runs) are enough to make a
+		// fresh time.Now()-based Cancel() silently fail to refund. Reusing
+		// the exact Reserve time keeps the cancel valid.
+		now := time.Now()
+		res := limiter.ReserveN(now, 1)
+		if !res.OK() || res.DelayFrom(now) > 0 {
+			res.CancelAt(now)
 			apperr.AbortWithError(c, http.StatusTooManyRequests, "rate_limited")
 			return
 		}
@@ -84,7 +92,7 @@ func Middleware(l *Limiter, skipSuccessful bool) gin.HandlerFunc {
 		c.Next()
 
 		if skipSuccessful && c.Writer.Status() < 400 {
-			res.Cancel()
+			res.CancelAt(now)
 		}
 	}
 }
