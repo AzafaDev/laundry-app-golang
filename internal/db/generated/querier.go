@@ -26,6 +26,7 @@ type Querier interface {
 	// reuses this same query with a non-NULL value.
 	CompleteOrderForTaskIfCurrent(ctx context.Context, arg CompleteOrderForTaskIfCurrentParams) (Order, error)
 	CountActiveEmployeeShiftsByShiftID(ctx context.Context, shiftID pgtype.UUID) (int64, error)
+	CountActiveOrdersByCustomer(ctx context.Context, customerID pgtype.UUID) (int64, error)
 	CountAttendanceReport(ctx context.Context, arg CountAttendanceReportParams) (int64, error)
 	CountAttendancesByEmployee(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountBypassRequests(ctx context.Context, arg CountBypassRequestsParams) (int64, error)

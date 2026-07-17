@@ -95,6 +95,18 @@ func (q *Queries) CompleteOrderForTaskIfCurrent(ctx context.Context, arg Complet
 	return i, err
 }
 
+const countActiveOrdersByCustomer = `-- name: CountActiveOrdersByCustomer :one
+SELECT COUNT(*) FROM orders
+WHERE customer_id = $1 AND status != 'completed'
+`
+
+func (q *Queries) CountActiveOrdersByCustomer(ctx context.Context, customerID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveOrdersByCustomer, customerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE customer_id = $1

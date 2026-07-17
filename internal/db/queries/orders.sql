@@ -33,6 +33,10 @@ WHERE customer_id = sqlc.arg('customer_id')
   AND (sqlc.narg('date_from')::timestamptz IS NULL OR created_at >= sqlc.narg('date_from'))
   AND (sqlc.narg('date_to')::timestamptz IS NULL OR created_at <= sqlc.narg('date_to'));
 
+-- name: CountActiveOrdersByCustomer :one
+SELECT COUNT(*) FROM orders
+WHERE customer_id = $1 AND status != 'completed';
+
 -- name: CreateOrderStatusHistory :one
 INSERT INTO order_status_histories (order_id, old_status, new_status, changed_by_type, changed_by_id, note)
 VALUES ($1, $2, $3, $4, $5, $6)

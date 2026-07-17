@@ -59,8 +59,6 @@ func main() {
 
 	outlets := map[string]string{} // name -> id
 	for _, o := range []outletSeed{
-		{"Laundry Kilat - Kemang", "Jl. Kemang Raya No. 10, Jakarta Selatan", -6.263300, 106.814400, 8},
-		{"Laundry Kilat - Sudirman", "Jl. Jend. Sudirman Kav. 25, Jakarta Pusat", -6.208200, 106.822400, 6},
 		{"Laundry Kilat - Curug", "Jl. Komp. Tataka Puri Blok J5 No.10, RT.3/RW.5, Kadu, Kec. Curug, Kabupaten Tangerang, Banten 15810", -6.229296504362473, 106.5674849964895, 8},
 	} {
 		id, err := ensureOutlet(ctx, pool, o)

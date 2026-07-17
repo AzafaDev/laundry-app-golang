@@ -8,7 +8,9 @@ import (
 	"laundry-app-with-golang/internal/testutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetOrderDetail_ReturnsFullyEnrichedOrder(t *testing.T) {
@@ -170,5 +172,85 @@ func TestListOrders_IncludesOutletName(t *testing.T) {
 	}
 	if resp.Data[0].OutletName != outlet.Name {
 		t.Errorf("expected outlet_name %q, got %q", outlet.Name, resp.Data[0].OutletName)
+	}
+}
+
+func createOrderRequest(t *testing.T, router http.Handler, cookies []*http.Cookie, addressID string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	pickupDate := time.Now().Format("2006-01-02")
+	body := fmt.Sprintf(`{"pickup_address_id":%q,"pickup_date":%q}`, addressID, pickupDate)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/customer/orders", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-CSRF-Token", testutil.CookieValue(cookies, "csrf_token"))
+	for _, ck := range cookies {
+		req.AddCookie(ck)
+	}
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+// cleanupCreatedOrder removes an order created through the live CreateOrder
+// endpoint (and the rows it cascades into) before t.Cleanup tears down the
+// outlet/address fixtures those rows reference — order_status_histories,
+// driver_tasks, and orders.outlet_id/pickup_address_id have no ON DELETE
+// CASCADE, so leaving this order behind would make the outlet/address
+// cleanup fail on a foreign key violation.
+func cleanupCreatedOrder(t *testing.T, app *testutil.TestApp, rec *httptest.ResponseRecorder) {
+	t.Helper()
+
+	var resp order.OrderResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create order response: %v", err)
+	}
+
+	t.Cleanup(func() {
+		ctx := context.Background()
+		_, _ = app.Pool.Exec(ctx, "DELETE FROM order_status_histories WHERE order_id = $1", resp.ID)
+		_, _ = app.Pool.Exec(ctx, "DELETE FROM driver_tasks WHERE order_id = $1", resp.ID)
+		if _, err := app.Pool.Exec(ctx, "DELETE FROM orders WHERE id = $1", resp.ID); err != nil {
+			t.Logf("failed to clean up created order %s: %v", resp.ID, err)
+		}
+	})
+}
+
+func TestCreateOrder_SucceedsWhenCustomerHasNoActiveOrder(t *testing.T) {
+	app := testutil.NewTestApp(t)
+
+	customer := app.CreateTestCustomer(t)
+	app.CreateTestOutlet(t)
+	address := app.CreateTestAddress(t, customer.ID)
+
+	cookies := testutil.LoginAs(t, app.Router, "/api/v1/customer/auth/login", customer.Email, testutil.TestPassword)
+
+	rec := createOrderRequest(t, app.Router, cookies, address.ID.String())
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	cleanupCreatedOrder(t, app, rec)
+}
+
+func TestCreateOrder_RejectsWhenCustomerHasActiveOrder(t *testing.T) {
+	app := testutil.NewTestApp(t)
+
+	customer := app.CreateTestCustomer(t)
+	app.CreateTestOutlet(t)
+	address := app.CreateTestAddress(t, customer.ID)
+
+	cookies := testutil.LoginAs(t, app.Router, "/api/v1/customer/auth/login", customer.Email, testutil.TestPassword)
+
+	first := createOrderRequest(t, app.Router, cookies, address.ID.String())
+	if first.Code != http.StatusCreated {
+		t.Fatalf("expected first order to be created with 201, got %d: %s", first.Code, first.Body.String())
+	}
+	cleanupCreatedOrder(t, app, first)
+
+	second := createOrderRequest(t, app.Router, cookies, address.ID.String())
+	if second.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", second.Code, second.Body.String())
 	}
 }

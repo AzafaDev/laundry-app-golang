@@ -91,6 +91,9 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 				Name:  "Order " + ord.InvoiceNumber,
 			},
 		},
+		Callbacks: &snap.Callbacks{
+			Finish: h.Config.FrontendURL + "/payment/" + c.Param("id"),
+		},
 	})
 	if midtransErr != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": midtransErr.GetMessage()})
