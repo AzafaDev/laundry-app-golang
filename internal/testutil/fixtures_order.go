@@ -175,7 +175,7 @@ func (a *TestApp) CreateTestOrder(t *testing.T, customerID, outletID, addressID 
 
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_status_history WHERE order_id = $1", order.ID)
+		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_status_histories WHERE order_id = $1", order.ID)
 		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_item_breakdowns WHERE order_id = $1", order.ID)
 		_, _ = a.Pool.Exec(ctx, "DELETE FROM order_items WHERE order_id = $1", order.ID)
 		_, _ = a.Pool.Exec(ctx, "DELETE FROM driver_tasks WHERE order_id = $1", order.ID)
@@ -294,15 +294,15 @@ func (a *TestApp) MidtransSignature(orderID, statusCode, grossAmount string) str
 	return hex.EncodeToString(sum[:])
 }
 
-// EnsureShiftEligibility gives employeeID everything
-// attendance.AssertShiftEligibility requires: a work shift covering the
+// CreateTestShiftAssignment gives employeeID a work shift covering the
 // entire current civil day (so "now" always falls inside it regardless of
-// when the test runs), a date-specific EmployeeShift assignment for today,
-// and a checked-in (not checked-out) Attendance row for today. Every
-// worker/driver-role HTTP endpoint (ClaimTask, SubmitItems, CompleteStation,
-// CheckIn/Out, ...) gates on this, so any test hitting those routes needs it
-// — a gap not covered by #16a-c, whose fixtures never touched these roles.
-func (a *TestApp) EnsureShiftEligibility(t *testing.T, employeeID, outletID pgtype.UUID) {
+// when the test runs) plus a date-specific EmployeeShift assignment for
+// today — the two pieces of shift eligibility that exist independently of
+// whether the employee has actually checked in yet (see EnsureShiftEligibility,
+// which adds the attendance row on top of this for callers that need full
+// attendance.AssertShiftEligibility eligibility rather than just a schedule
+// to check in against).
+func (a *TestApp) CreateTestShiftAssignment(t *testing.T, employeeID, outletID pgtype.UUID) {
 	t.Helper()
 
 	now := time.Now().In(shift.JakartaLocation)
@@ -342,6 +342,23 @@ func (a *TestApp) EnsureShiftEligibility(t *testing.T, employeeID, outletID pgty
 			t.Logf("failed to clean up test employee shift %s: %v", es.ID, err)
 		}
 	})
+}
+
+// EnsureShiftEligibility gives employeeID everything
+// attendance.AssertShiftEligibility requires: CreateTestShiftAssignment's
+// work shift + employee shift for today, plus a checked-in (not
+// checked-out) Attendance row for today. Every worker/driver-role HTTP
+// endpoint (ClaimTask, SubmitItems, CompleteStation, ...) gates on this, so
+// any test hitting those routes needs it — a gap not covered by #16a-c,
+// whose fixtures never touched these roles.
+func (a *TestApp) EnsureShiftEligibility(t *testing.T, employeeID, outletID pgtype.UUID) {
+	t.Helper()
+
+	a.CreateTestShiftAssignment(t, employeeID, outletID)
+
+	now := time.Now().In(shift.JakartaLocation)
+	ctx := context.Background()
+	today := pgtype.Date{Time: shift.CivilDateStart(now), Valid: true}
 
 	att, err := a.Queries.CreateAttendance(ctx, db.CreateAttendanceParams{
 		EmployeeID:       employeeID,
