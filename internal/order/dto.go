@@ -165,8 +165,10 @@ type CreateBypassRequest struct {
 type BypassResponse struct {
 	ID                     string           `json:"id"`
 	OrderID                string           `json:"order_id"`
+	InvoiceNumber          string           `json:"invoice_number,omitempty"`
 	Station                string           `json:"station"`
 	RequestedBy            string           `json:"requested_by"`
+	RequestedByName        string           `json:"requested_by_name,omitempty"`
 	ExpectedItems          []NormalizedItem `json:"expected_items"`
 	ActualItems            []NormalizedItem `json:"actual_items"`
 	DiscrepancyDescription string           `json:"discrepancy_description"`

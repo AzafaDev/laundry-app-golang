@@ -225,7 +225,7 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		"status":   "pending",
 	})
 
-	resp, err := h.toBypassResponse(created)
+	resp, err := h.toBypassResponse(c.Request.Context(), created)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
@@ -260,7 +260,7 @@ func (h *Handler) GetBypassByOrder(c *gin.Context) {
 
 	data := make([]BypassResponse, 0, len(rows))
 	for _, row := range rows {
-		resp, err := h.toBypassResponse(row)
+		resp, err := h.toBypassResponse(c.Request.Context(), row)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
 			return
@@ -318,7 +318,7 @@ func (h *Handler) ListBypassRequests(c *gin.Context) {
 
 	data := make([]BypassResponse, 0, len(rows))
 	for _, row := range rows {
-		resp, err := h.toBypassResponse(row)
+		resp, err := h.toBypassResponse(c.Request.Context(), row)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
 			return
@@ -358,7 +358,7 @@ func (h *Handler) GetBypassRequest(c *gin.Context) {
 		}
 	}
 
-	resp, err := h.toBypassResponse(bypass)
+	resp, err := h.toBypassResponse(c.Request.Context(), bypass)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
@@ -434,7 +434,7 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 			"adminNotes":    req.AdminNotes,
 		})
 
-		resp, err := h.toBypassResponse(reviewed)
+		resp, err := h.toBypassResponse(c.Request.Context(), reviewed)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
 			return
@@ -505,7 +505,7 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, SubmitItemsResponse{Success: true, Data: &resp})
 }
 
-func (h *Handler) toBypassResponse(b db.BypassRequest) (BypassResponse, error) {
+func (h *Handler) toBypassResponse(ctx context.Context, b db.BypassRequest) (BypassResponse, error) {
 	var expected, actual []NormalizedItem
 	if err := json.Unmarshal(b.ExpectedItems, &expected); err != nil {
 		return BypassResponse{}, err
@@ -530,5 +530,13 @@ func (h *Handler) toBypassResponse(b db.BypassRequest) (BypassResponse, error) {
 	if b.ReviewedBy.Valid {
 		resp.ReviewedBy = b.ReviewedBy.String()
 	}
+
+	if ord, err := h.Queries.GetOrderByIDAny(ctx, b.OrderID); err == nil {
+		resp.InvoiceNumber = ord.InvoiceNumber
+	}
+	if emp, err := h.Queries.GetEmployeeByIDAny(ctx, b.RequestedBy); err == nil {
+		resp.RequestedByName = emp.FullName
+	}
+
 	return resp, nil
 }
