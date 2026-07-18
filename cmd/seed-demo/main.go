@@ -73,9 +73,13 @@ func main() {
 		log.Printf("outlet ready: %s (%s)", o.name, id)
 	}
 
-	shiftID, err := ensureWorkShift(ctx, pool, "Shift Harian Demo")
+	morningShiftID, err := ensureWorkShift(ctx, pool, "Shift Pagi", "06:00:00", "14:00:00")
 	if err != nil {
-		log.Fatalf("failed to seed work shift: %v", err)
+		log.Fatalf("failed to seed morning shift: %v", err)
+	}
+	_, err = ensureWorkShift(ctx, pool, "Shift Sore", "14:00:00", "22:00:00")
+	if err != nil {
+		log.Fatalf("failed to seed evening shift: %v", err)
 	}
 
 	employeeIDs := map[string]string{} // email -> id
@@ -101,7 +105,7 @@ func main() {
 		log.Printf("employee ready: %s <%s> (%s)", e.fullName, e.email, e.role)
 
 		if e.role != "super_admin" {
-			if err := ensureEmployeeShiftToday(ctx, pool, id, shiftID, outlets[e.outlet]); err != nil {
+			if err := ensureEmployeeShiftRecurring(ctx, pool, id, morningShiftID, outlets[e.outlet]); err != nil {
 				log.Fatalf("failed to seed today's shift for %q: %v", e.email, err)
 			}
 		}
@@ -222,7 +226,7 @@ func ensureOutlet(ctx context.Context, pool *pgxpool.Pool, o outletSeed) (string
 	return id, err
 }
 
-func ensureWorkShift(ctx context.Context, pool *pgxpool.Pool, name string) (string, error) {
+func ensureWorkShift(ctx context.Context, pool *pgxpool.Pool, name, startTime, endTime string) (string, error) {
 	var id string
 	err := pool.QueryRow(ctx, "SELECT id FROM work_shifts WHERE name = $1 AND deleted_at IS NULL", name).Scan(&id)
 	if err == nil {
@@ -234,9 +238,9 @@ func ensureWorkShift(ctx context.Context, pool *pgxpool.Pool, name string) (stri
 
 	err = pool.QueryRow(ctx, `
 		INSERT INTO work_shifts (name, start_time, end_time, is_active)
-		VALUES ($1, '00:00:00', '23:59:59', TRUE)
+		VALUES ($1, $2, $3, TRUE)
 		RETURNING id
-	`, name).Scan(&id)
+	`, name, startTime, endTime).Scan(&id)
 	return id, err
 }
 
@@ -259,21 +263,24 @@ func ensureEmployee(ctx context.Context, pool *pgxpool.Pool, fullName, email, pa
 	return id, err
 }
 
-func ensureEmployeeShiftToday(ctx context.Context, pool *pgxpool.Pool, employeeID, shiftID, outletID string) error {
-	var id string
-	err := pool.QueryRow(ctx, "SELECT id FROM employee_shifts WHERE employee_id = $1 AND date = CURRENT_DATE", employeeID).Scan(&id)
-	if err == nil {
-		return nil
+func ensureEmployeeShiftRecurring(ctx context.Context, pool *pgxpool.Pool, employeeID, shiftID, outletID string) error {
+	for day := 0; day <= 6; day++ {
+		var id string
+		err := pool.QueryRow(ctx, "SELECT id FROM employee_shifts WHERE employee_id = $1 AND day_of_week = $2", employeeID, day).Scan(&id)
+		if err == nil {
+			continue
+		}
+		if err != pgx.ErrNoRows {
+			return err
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO employee_shifts (employee_id, shift_id, outlet_id, day_of_week, is_active)
+			VALUES ($1, $2, $3, $4, TRUE)
+		`, employeeID, shiftID, outletID, day); err != nil {
+			return err
+		}
 	}
-	if err != pgx.ErrNoRows {
-		return err
-	}
-
-	_, err = pool.Exec(ctx, `
-		INSERT INTO employee_shifts (employee_id, shift_id, outlet_id, date, is_active)
-		VALUES ($1, $2, $3, CURRENT_DATE, TRUE)
-	`, employeeID, shiftID, outletID)
-	return err
+	return nil
 }
 
 func ensureCustomer(ctx context.Context, pool *pgxpool.Pool, fullName, email, passwordHash, phone string) (string, error) {

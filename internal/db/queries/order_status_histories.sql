@@ -18,3 +18,19 @@ WHERE osh.changed_by_type = 'employee'
   AND (sqlc.narg('date_from')::timestamptz IS NULL OR osh.created_at >= sqlc.narg('date_from'))
   AND (sqlc.narg('date_to')::timestamptz IS NULL OR osh.created_at <= sqlc.narg('date_to'))
 GROUP BY osh.changed_by_id;
+
+-- name: ListStationHistoryByEmployee :many
+SELECT
+    h.id, h.order_id, h.old_status, h.new_status, h.created_at,
+    o.invoice_number
+FROM order_status_histories h
+JOIN orders o ON o.id = h.order_id
+WHERE h.changed_by_id = $1
+  AND h.old_status = $2
+  AND h.changed_by_type = 'employee'
+ORDER BY h.created_at DESC
+LIMIT $3 OFFSET $4;
+
+-- name: CountStationHistoryByEmployee :one
+SELECT COUNT(*) FROM order_status_histories
+WHERE changed_by_id = $1 AND old_status = $2 AND changed_by_type = 'employee';

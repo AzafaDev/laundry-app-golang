@@ -131,6 +131,20 @@ type ActualSatuanItem struct {
 	ActualQuantity int32  `json:"actual_quantity"`
 }
 
+type StationHistoryEntry struct {
+	ID            string `json:"id"`
+	OrderID       string `json:"order_id"`
+	InvoiceNumber string `json:"invoice_number"`
+	FromStatus    string `json:"from_status"`
+	ToStatus      string `json:"to_status"`
+	ProcessedAt   string `json:"processed_at"`
+}
+
+type StationHistoryResponse struct {
+	Data       []StationHistoryEntry `json:"data"`
+	TotalCount int64                 `json:"total_count"`
+}
+
 type SubmitItemsResponse struct {
 	Success        bool           `json:"success"`
 	RequiresBypass bool           `json:"requires_bypass,omitempty"`

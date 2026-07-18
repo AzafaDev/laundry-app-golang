@@ -42,6 +42,7 @@ type Querier interface {
 	CountOrderItemsByOrder(ctx context.Context, orderID pgtype.UUID) (int64, error)
 	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOutlets(ctx context.Context) (int64, error)
+	CountStationHistoryByEmployee(ctx context.Context, arg CountStationHistoryByEmployeeParams) (int64, error)
 	CountUnreadCustomerNotifications(ctx context.Context, customerID pgtype.UUID) (int64, error)
 	CountUnreadEmployeeNotifications(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountWorkShifts(ctx context.Context) (int64, error)
@@ -155,6 +156,7 @@ type Querier interface {
 	ListOrdersReadyForAutoComplete(ctx context.Context) ([]Order, error)
 	ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error)
 	ListProvinces(ctx context.Context) ([]Province, error)
+	ListStationHistoryByEmployee(ctx context.Context, arg ListStationHistoryByEmployeeParams) ([]ListStationHistoryByEmployeeRow, error)
 	ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error)
 	MarkAllCustomerNotificationsRead(ctx context.Context, customerID pgtype.UUID) error
 	MarkAllEmployeeNotificationsRead(ctx context.Context, employeeID pgtype.UUID) error

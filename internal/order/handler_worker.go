@@ -247,6 +247,61 @@ func (h *Handler) GetStationOrderItems(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": items})
 }
 
+// GetStationHistory lists orders the calling worker has previously
+// processed through their station, derived from order_status_histories.
+func (h *Handler) GetStationHistory(c *gin.Context) {
+	station := c.Param("station")
+	if !isValidStation(station) {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_station")
+		return
+	}
+	if !assertStationAccess(c, station) {
+		return
+	}
+
+	employeeID, err := apphelper.CurrentEmployeeID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
+
+	rows, err := h.Queries.ListStationHistoryByEmployee(c.Request.Context(), db.ListStationHistoryByEmployeeParams{
+		ChangedByID: employeeID,
+		OldStatus:   pgtype.Text{String: station, Valid: true},
+		Limit:       limit,
+		Offset:      offset,
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	total, err := h.Queries.CountStationHistoryByEmployee(c.Request.Context(), db.CountStationHistoryByEmployeeParams{
+		ChangedByID: employeeID,
+		OldStatus:   pgtype.Text{String: station, Valid: true},
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	data := make([]StationHistoryEntry, 0, len(rows))
+	for _, r := range rows {
+		data = append(data, StationHistoryEntry{
+			ID:            r.ID.String(),
+			OrderID:       r.OrderID.String(),
+			InvoiceNumber: r.InvoiceNumber,
+			FromStatus:    r.OldStatus.String,
+			ToStatus:      r.NewStatus,
+			ProcessedAt:   r.CreatedAt.Time.Format(time.RFC3339),
+		})
+	}
+
+	c.JSON(http.StatusOK, StationHistoryResponse{Data: data, TotalCount: total})
+}
+
 func (h *Handler) SubmitItems(c *gin.Context) {
 	station := c.Param("station")
 	if !isValidStation(station) {

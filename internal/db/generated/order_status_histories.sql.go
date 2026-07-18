@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countStationHistoryByEmployee = `-- name: CountStationHistoryByEmployee :one
+SELECT COUNT(*) FROM order_status_histories
+WHERE changed_by_id = $1 AND old_status = $2 AND changed_by_type = 'employee'
+`
+
+type CountStationHistoryByEmployeeParams struct {
+	ChangedByID pgtype.UUID `json:"changed_by_id"`
+	OldStatus   pgtype.Text `json:"old_status"`
+}
+
+func (q *Queries) CountStationHistoryByEmployee(ctx context.Context, arg CountStationHistoryByEmployeeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStationHistoryByEmployee, arg.ChangedByID, arg.OldStatus)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listOrderStatusHistoriesByOrder = `-- name: ListOrderStatusHistoriesByOrder :many
 SELECT id, order_id, old_status, new_status, changed_by_type, changed_by_id, note, created_at FROM order_status_histories
 WHERE order_id = $1
@@ -35,6 +52,67 @@ func (q *Queries) ListOrderStatusHistoriesByOrder(ctx context.Context, orderID p
 			&i.ChangedByID,
 			&i.Note,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStationHistoryByEmployee = `-- name: ListStationHistoryByEmployee :many
+SELECT
+    h.id, h.order_id, h.old_status, h.new_status, h.created_at,
+    o.invoice_number
+FROM order_status_histories h
+JOIN orders o ON o.id = h.order_id
+WHERE h.changed_by_id = $1
+  AND h.old_status = $2
+  AND h.changed_by_type = 'employee'
+ORDER BY h.created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListStationHistoryByEmployeeParams struct {
+	ChangedByID pgtype.UUID `json:"changed_by_id"`
+	OldStatus   pgtype.Text `json:"old_status"`
+	Limit       int32       `json:"limit"`
+	Offset      int32       `json:"offset"`
+}
+
+type ListStationHistoryByEmployeeRow struct {
+	ID            pgtype.UUID        `json:"id"`
+	OrderID       pgtype.UUID        `json:"order_id"`
+	OldStatus     pgtype.Text        `json:"old_status"`
+	NewStatus     string             `json:"new_status"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	InvoiceNumber string             `json:"invoice_number"`
+}
+
+func (q *Queries) ListStationHistoryByEmployee(ctx context.Context, arg ListStationHistoryByEmployeeParams) ([]ListStationHistoryByEmployeeRow, error) {
+	rows, err := q.db.Query(ctx, listStationHistoryByEmployee,
+		arg.ChangedByID,
+		arg.OldStatus,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStationHistoryByEmployeeRow
+	for rows.Next() {
+		var i ListStationHistoryByEmployeeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.OldStatus,
+			&i.NewStatus,
+			&i.CreatedAt,
+			&i.InvoiceNumber,
 		); err != nil {
 			return nil, err
 		}

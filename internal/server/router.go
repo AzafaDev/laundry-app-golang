@@ -208,6 +208,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	workerRoles := middleware.RequireRole("washing_worker", "ironing_worker", "packing_worker")
 	router.GET("/api/v1/employee/worker/station/:station/orders", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrders)
 	router.GET("/api/v1/employee/worker/station/:station/orders/:orderId/items", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrderItems)
+	router.GET("/api/v1/employee/worker/station/:station/history", employeeAuthMiddleware, workerRoles, orderHandler.GetStationHistory)
 	router.POST("/api/v1/employee/worker/station/:station/orders/:orderId/submit-items", employeeAuthMiddleware, csrfMiddleware, workerRoles, orderHandler.SubmitItems)
 	router.PATCH("/api/v1/employee/worker/station/:station/orders/:orderId/complete", employeeAuthMiddleware, csrfMiddleware, workerRoles, orderHandler.CompleteStation)
 	router.POST("/api/v1/employee/worker/bypass", employeeAuthMiddleware, csrfMiddleware, workerRoles, orderHandler.CreateBypassRequest)

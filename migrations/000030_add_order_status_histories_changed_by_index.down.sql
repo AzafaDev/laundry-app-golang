@@ -1,0 +1,1 @@
+DROP INDEX idx_order_status_histories_changed_by;
