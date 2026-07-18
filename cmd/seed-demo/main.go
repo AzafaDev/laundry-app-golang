@@ -37,9 +37,13 @@ type customerSeed struct {
 	fullName string
 	email    string
 	phone    string
-	label    string
-	address  string
-	lat, lon float64
+}
+
+type addressSeed struct {
+	customerEmail string
+	label         string
+	address       string
+	lat, lon      float64
 }
 
 func main() {
@@ -77,16 +81,11 @@ func main() {
 	employeeIDs := map[string]string{} // email -> id
 	for _, e := range []employeeSeed{
 		{"Budi Santoso", "admin@demo.laundry", "super_admin", ""},
-		{"Siti Aminah", "kemang.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Kemang"},
-		{"Rahmat Hidayat", "sudirman.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Sudirman"},
-		{"Dewi Lestari", "kemang.washing@demo.laundry", "washing_worker", "Laundry Kilat - Kemang"},
-		{"Agus Wijaya", "sudirman.washing@demo.laundry", "washing_worker", "Laundry Kilat - Sudirman"},
-		{"Fitriani", "kemang.ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Kemang"},
-		{"Hendra Gunawan", "sudirman.ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Sudirman"},
-		{"Yuni Kartika", "kemang.packing@demo.laundry", "packing_worker", "Laundry Kilat - Kemang"},
-		{"Joko Prasetyo", "sudirman.packing@demo.laundry", "packing_worker", "Laundry Kilat - Sudirman"},
-		{"Dedi Kurniawan", "kemang.driver@demo.laundry", "driver", "Laundry Kilat - Kemang"},
-		{"Rudi Setiawan", "sudirman.driver@demo.laundry", "driver", "Laundry Kilat - Sudirman"},
+		{"Siti Aminah", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug"},
+		{"Dewi Lestari", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug"},
+		{"Fitriani", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug"},
+		{"Yuni Kartika", "packing@demo.laundry", "packing_worker", "Laundry Kilat - Curug"},
+		{"Dedi Kurniawan", "driver@demo.laundry", "driver", "Laundry Kilat - Curug"},
 	} {
 		var outletID *string
 		if e.outlet != "" {
@@ -113,30 +112,41 @@ func main() {
 		log.Fatalf("failed to look up wilayah reference IDs: %v", err)
 	}
 
-	customerIDs := map[string]string{} // email -> id
-	addressIDs := map[string]string{}  // email -> address id
-	// Addresses are staggered around the Curug outlet (-6.229296504362473,
-	// 106.5674849964895) to exercise different service-radius tiers:
-	// andi is inside it (<5km), maya is just past it (>5km), and
-	// bayu/rina sit well outside any outlet's radius (>10km).
-	for _, c := range []customerSeed{
-		{"Andi Saputra", "andi@demo.customer", "081211112222", "Rumah", "Jl. Raya Curug, Binong, Kec. Curug, Kab. Tangerang, Banten", -6.2306, 106.6005},
-		{"Maya Puspita", "maya@demo.customer", "081233334444", "Rumah", "Jl. Raya Legok, Kec. Legok, Kab. Tangerang, Banten", -6.2450, 106.6200},
-		{"Bayu Firmansyah", "bayu@demo.customer", "081255556666", "Kantor", "Jl. Raya Serpong, BSD, Kec. Serpong, Tangerang Selatan, Banten", -6.3000, 106.6800},
-		{"Rina Marlina", "rina@demo.customer", "081277778888", "Rumah", "Jl. Gatot Subroto, Kec. Batuceper, Kota Tangerang, Banten", -6.1450, 106.4700},
-	} {
+	customers := []customerSeed{
+		{"Rina Marlina", "rina@demo.customer", "081277778888"},
+		{"Clean Testing", "clean@demo.customer", "081200000000"}, // sengaja 0 order, buat test alur Pickup baru
+	}
+
+	// Jarak dihitung dari outlet Curug (-6.229296504362473, 106.5674849964895,
+	// radius layanan 8km): near ~3km (gratis ongkir, di dalam radius), mid
+	// ~6.8km (kena ongkir flat, masih di dalam radius), far ~16.6km (di luar
+	// radius outlet sama sekali -> no_outlet_in_range saat dipakai bikin order baru).
+	addresses := []addressSeed{
+		{"rina@demo.customer", "Rumah", "Jl. Curug Wetan Raya, Kec. Curug, Kab. Tangerang, Banten", -6.2103, 106.5875},
+		{"rina@demo.customer", "Kantor", "Jl. Raya Legok, Kec. Legok, Kab. Tangerang, Banten", -6.1850, 106.6100},
+		{"rina@demo.customer", "Rumah Orang Tua", "Jl. Raya Serpong, BSD City, Kec. Serpong, Tangerang Selatan, Banten", -6.1300, 106.6800},
+		{"clean@demo.customer", "Rumah", "Jl. Curug Wetan Raya, Kec. Curug, Kab. Tangerang, Banten", -6.2103, 106.5875},
+	}
+
+	customerIDs := map[string]string{}
+	addressIDs := map[string]map[string]string{} // email -> label -> address id
+
+	for _, c := range customers {
 		id, err := ensureCustomer(ctx, pool, c.fullName, c.email, hash, c.phone)
 		if err != nil {
 			log.Fatalf("failed to seed customer %q: %v", c.email, err)
 		}
 		customerIDs[c.email] = id
+		addressIDs[c.email] = map[string]string{}
 		log.Printf("customer ready: %s <%s>", c.fullName, c.email)
+	}
 
-		addrID, err := ensureCustomerAddress(ctx, pool, id, c.label, c.address, provinceID, cityID, districtID, c.lat, c.lon)
+	for _, a := range addresses {
+		addrID, err := ensureCustomerAddress(ctx, pool, customerIDs[a.customerEmail], a.label, a.address, provinceID, cityID, districtID, a.lat, a.lon)
 		if err != nil {
-			log.Fatalf("failed to seed address for %q: %v", c.email, err)
+			log.Fatalf("failed to seed address %q for %q: %v", a.label, a.customerEmail, err)
 		}
-		addressIDs[c.email] = addrID
+		addressIDs[a.customerEmail][a.label] = addrID
 	}
 
 	clothingTypeID, err := ensureClothingType(ctx, pool, "Kemeja")
@@ -148,9 +158,10 @@ func main() {
 		log.Fatalf("failed to seed laundry item: %v", err)
 	}
 
-	kemangOutlet := outlets["Laundry Kilat - Kemang"]
-	sudirmanOutlet := outlets["Laundry Kilat - Sudirman"]
-	kemangAdmin := employeeIDs["kemang.admin@demo.laundry"]
+	curugOutlet := outlets["Laundry Kilat - Curug"]
+	curugAdmin := employeeIDs["outlet.admin@demo.laundry"]
+	rinaID := customerIDs["rina@demo.customer"]
+	rinaAddr := addressIDs["rina@demo.customer"]
 
 	type demoOrder struct {
 		invoice    string
@@ -161,16 +172,21 @@ func main() {
 		totalPrice float64
 	}
 	orders := []demoOrder{
-		{"DEMO-0001", "andi@demo.customer", kemangOutlet, "andi@demo.customer", "waiting_pickup_driver", 35000},
-		{"DEMO-0002", "maya@demo.customer", kemangOutlet, "maya@demo.customer", "washing", 42000},
-		{"DEMO-0003", "bayu@demo.customer", sudirmanOutlet, "bayu@demo.customer", "packing", 56000},
-		{"DEMO-0004", "rina@demo.customer", sudirmanOutlet, "rina@demo.customer", "waiting_payment", 63000},
-		{"DEMO-0005", "andi@demo.customer", kemangOutlet, "andi@demo.customer", "ready_for_delivery", 48000},
-		{"DEMO-0006", "maya@demo.customer", kemangOutlet, "maya@demo.customer", "completed", 39000},
+		{"DEMO-0001", rinaID, curugOutlet, rinaAddr["Rumah"], "waiting_pickup_driver", 35000},
+		{"DEMO-0002", rinaID, curugOutlet, rinaAddr["Rumah"], "laundry_to_outlet", 38000},
+		{"DEMO-0003", rinaID, curugOutlet, rinaAddr["Kantor"], "laundry_arrived_outlet", 41000},
+		{"DEMO-0004", rinaID, curugOutlet, rinaAddr["Kantor"], "washing", 42000},
+		{"DEMO-0005", rinaID, curugOutlet, rinaAddr["Rumah Orang Tua"], "ironing", 44000},
+		{"DEMO-0006", rinaID, curugOutlet, rinaAddr["Rumah"], "packing", 56000},
+		{"DEMO-0007", rinaID, curugOutlet, rinaAddr["Kantor"], "waiting_payment", 63000},
+		{"DEMO-0008", rinaID, curugOutlet, rinaAddr["Rumah"], "ready_for_delivery", 48000},
+		{"DEMO-0009", rinaID, curugOutlet, rinaAddr["Kantor"], "delivery_to_customer", 52000},
+		{"DEMO-0010", rinaID, curugOutlet, rinaAddr["Rumah"], "received_by_customer", 45000},
+		{"DEMO-0011", rinaID, curugOutlet, rinaAddr["Rumah"], "completed", 39000},
 	}
 
 	for _, o := range orders {
-		orderID, created, err := ensureOrder(ctx, pool, o.invoice, customerIDs[o.customer], o.outlet, addressIDs[o.address], o.status, o.totalPrice)
+		orderID, created, err := ensureOrder(ctx, pool, o.invoice, o.customer, o.outlet, o.address, o.status, o.totalPrice)
 		if err != nil {
 			log.Fatalf("failed to seed order %q: %v", o.invoice, err)
 		}
@@ -180,7 +196,7 @@ func main() {
 		}
 		log.Printf("order seeded: %s (%s)", o.invoice, o.status)
 
-		if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, kemangAdmin, o.status); err != nil {
+		if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, curugAdmin, o.status); err != nil {
 			log.Fatalf("failed to seed contents for order %q: %v", o.invoice, err)
 		}
 	}
@@ -281,7 +297,7 @@ func ensureCustomer(ctx context.Context, pool *pgxpool.Pool, fullName, email, pa
 
 func ensureCustomerAddress(ctx context.Context, pool *pgxpool.Pool, customerID, label, address string, provinceID, cityID, districtID int32, lat, lon float64) (string, error) {
 	var id string
-	err := pool.QueryRow(ctx, "SELECT id FROM customer_addresses WHERE customer_id = $1 LIMIT 1", customerID).Scan(&id)
+	err := pool.QueryRow(ctx, "SELECT id FROM customer_addresses WHERE customer_id = $1 AND label = $2", customerID, label).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
@@ -289,11 +305,13 @@ func ensureCustomerAddress(ctx context.Context, pool *pgxpool.Pool, customerID, 
 		return "", err
 	}
 
+	isPrimary := label == "Rumah" // first/home address stays primary; others aren't
+
 	err = pool.QueryRow(ctx, `
 		INSERT INTO customer_addresses (customer_id, label, address, province_id, city_id, district_id, latitude, longitude, is_primary)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
-	`, customerID, label, address, provinceID, cityID, districtID, lat, lon).Scan(&id)
+	`, customerID, label, address, provinceID, cityID, districtID, lat, lon, isPrimary).Scan(&id)
 	return id, err
 }
 
@@ -370,20 +388,25 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 
 	switch status {
 	case "waiting_pickup_driver":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", false); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "available"); err != nil {
 			return err
 		}
 
-	case "washing", "packing":
+	case "laundry_to_outlet":
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "in_progress"); err != nil {
+			return err
+		}
+
+	case "laundry_arrived_outlet", "washing", "ironing", "packing":
 		// These stages imply the order has already been picked up from the
 		// customer, so a bare order with no driver_tasks at all would be
 		// incoherent with its own status.
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", true); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
 			return err
 		}
 
 	case "waiting_payment":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", true); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "pending", false); err != nil {
@@ -391,24 +414,35 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 		}
 
 	case "ready_for_delivery":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", true); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
 			return err
 		}
-		if err := seedDriverTask(ctx, pool, orderID, "delivery", false); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "available"); err != nil {
 			return err
 		}
 
-	case "completed":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", true); err != nil {
+	case "delivery_to_customer":
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
 			return err
 		}
-		if err := seedDriverTask(ctx, pool, orderID, "delivery", true); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "in_progress"); err != nil {
+			return err
+		}
+
+	case "received_by_customer", "completed":
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+			return err
+		}
+		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
+			return err
+		}
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "completed"); err != nil {
 			return err
 		}
 	}
@@ -416,14 +450,20 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 	return nil
 }
 
-func seedDriverTask(ctx context.Context, pool *pgxpool.Pool, orderID, taskType string, completed bool) error {
+func seedDriverTask(ctx context.Context, pool *pgxpool.Pool, orderID, taskType, stage string) error {
 	var err error
-	if completed {
+	switch stage {
+	case "completed":
 		_, err = pool.Exec(ctx, `
 			INSERT INTO driver_tasks (order_id, task_type, status, taken_at, completed_at)
 			VALUES ($1, $2, 'completed', now(), now())
 		`, orderID, taskType)
-	} else {
+	case "in_progress":
+		_, err = pool.Exec(ctx, `
+			INSERT INTO driver_tasks (order_id, task_type, status, taken_at)
+			VALUES ($1, $2, 'in_progress', now())
+		`, orderID, taskType)
+	default:
 		_, err = pool.Exec(ctx, `
 			INSERT INTO driver_tasks (order_id, task_type, status)
 			VALUES ($1, $2, 'available')
