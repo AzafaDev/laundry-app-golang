@@ -34,9 +34,11 @@ WHERE customer_id = sqlc.arg('customer_id')
   AND (sqlc.narg('date_to')::timestamptz IS NULL OR created_at <= sqlc.narg('date_to'));
 
 -- name: ListOrdersByOutlet :many
-SELECT orders.*, o.name AS outlet_name, o.address AS outlet_address
+SELECT orders.*, o.name AS outlet_name, o.address AS outlet_address,
+       c.full_name AS customer_name, c.phone AS customer_phone
 FROM orders
 LEFT JOIN outlets o ON o.id = orders.outlet_id
+LEFT JOIN customers c ON c.id = orders.customer_id
 WHERE orders.outlet_id = sqlc.arg('outlet_id')
   AND (sqlc.narg('status')::text IS NULL OR orders.status = sqlc.narg('status'))
   AND (sqlc.narg('search')::text IS NULL OR orders.invoice_number ILIKE '%' || sqlc.narg('search') || '%')

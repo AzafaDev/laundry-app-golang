@@ -22,6 +22,8 @@ type OrderResponse struct {
 	CreatedAt       string  `json:"created_at"`
 	BypassStatus    string  `json:"bypass_status,omitempty"` // "pending" | "rejected" (kosong = belum pernah/gak relevan)
 	Message         string  `json:"message,omitempty"`
+	CustomerName    string  `json:"customer_name,omitempty"`
+	CustomerPhone   string  `json:"customer_phone,omitempty"`
 }
 
 type OrderListResponse struct {

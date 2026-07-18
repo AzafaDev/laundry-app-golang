@@ -294,7 +294,7 @@ func (h *Handler) ListOutletOrders(c *gin.Context) {
 
 	data := make([]OrderResponse, 0, len(orders))
 	for _, o := range orders {
-		data = append(data, toOrderResponseFromListRow(db.ListOrdersRow(o)))
+		data = append(data, toOrderResponseFromOutletListRow(o))
 	}
 
 	c.JSON(http.StatusOK, OrderListResponse{Data: data, TotalCount: totalCount})
@@ -536,6 +536,25 @@ func toOrderResponseFromListRow(o db.ListOrdersRow) OrderResponse {
 		TotalWeightKG:   apphelper.NumericToFloat64(o.TotalWeightKg),
 		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
+	}
+}
+
+func toOrderResponseFromOutletListRow(o db.ListOrdersByOutletRow) OrderResponse {
+	return OrderResponse{
+		ID:              o.ID.String(),
+		InvoiceNumber:   o.InvoiceNumber,
+		OutletID:        o.OutletID.String(),
+		OutletName:      o.OutletName.String,
+		OutletAddress:   o.OutletAddress.String,
+		PickupAddressID: o.PickupAddressID.String(),
+		Status:          o.Status,
+		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
+		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalWeightKG:   apphelper.NumericToFloat64(o.TotalWeightKg),
+		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
+		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
+		CustomerName:    o.CustomerName.String,
+		CustomerPhone:   o.CustomerPhone.String,
 	}
 }
 

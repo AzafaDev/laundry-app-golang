@@ -455,9 +455,11 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 }
 
 const listOrdersByOutlet = `-- name: ListOrdersByOutlet :many
-SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address
+SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address,
+       c.full_name AS customer_name, c.phone AS customer_phone
 FROM orders
 LEFT JOIN outlets o ON o.id = orders.outlet_id
+LEFT JOIN customers c ON c.id = orders.customer_id
 WHERE orders.outlet_id = $1
   AND ($2::text IS NULL OR orders.status = $2)
   AND ($3::text IS NULL OR orders.invoice_number ILIKE '%' || $3 || '%')
@@ -494,6 +496,8 @@ type ListOrdersByOutletRow struct {
 	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
 	OutletName      pgtype.Text        `json:"outlet_name"`
 	OutletAddress   pgtype.Text        `json:"outlet_address"`
+	CustomerName    pgtype.Text        `json:"customer_name"`
+	CustomerPhone   pgtype.Text        `json:"customer_phone"`
 }
 
 func (q *Queries) ListOrdersByOutlet(ctx context.Context, arg ListOrdersByOutletParams) ([]ListOrdersByOutletRow, error) {
@@ -530,6 +534,8 @@ func (q *Queries) ListOrdersByOutlet(ctx context.Context, arg ListOrdersByOutlet
 			&i.AutoConfirmAt,
 			&i.OutletName,
 			&i.OutletAddress,
+			&i.CustomerName,
+			&i.CustomerPhone,
 		); err != nil {
 			return nil, err
 		}
