@@ -153,13 +153,42 @@ func main() {
 		addressIDs[a.customerEmail][a.label] = addrID
 	}
 
-	clothingTypeID, err := ensureClothingType(ctx, pool, "Kemeja")
-	if err != nil {
-		log.Fatalf("failed to seed clothing type: %v", err)
+	clothingTypeNames := []string{"Kemeja", "Celana", "Jaket", "Selimut", "Handuk", "Gaun", "Kaos", "Jas"}
+	var clothingTypeID string
+	for _, name := range clothingTypeNames {
+		id, err := ensureClothingType(ctx, pool, name)
+		if err != nil {
+			log.Fatalf("failed to seed clothing type %q: %v", name, err)
+		}
+		if clothingTypeID == "" {
+			clothingTypeID = id // first one stays the default used by seedOrderContents
+		}
+		log.Printf("clothing type ready: %s", name)
 	}
-	laundryItemID, err := ensureLaundryItem(ctx, pool, "Cuci Kiloan", "kg", 7000)
-	if err != nil {
-		log.Fatalf("failed to seed laundry item: %v", err)
+
+	type laundryItemSeed struct {
+		name      string
+		unit      string
+		basePrice float64
+	}
+	laundryItemSeeds := []laundryItemSeed{
+		{"Cuci Kiloan", "kg", 7000},
+		{"Cuci Setrika", "kg", 10000},
+		{"Setrika Saja", "kg", 5000},
+		{"Cuci Sepatu", "pcs", 25000},
+		{"Cuci Boneka", "pcs", 20000},
+		{"Dry Clean", "pcs", 35000},
+	}
+	var laundryItemID string
+	for _, li := range laundryItemSeeds {
+		id, err := ensureLaundryItem(ctx, pool, li.name, li.unit, li.basePrice)
+		if err != nil {
+			log.Fatalf("failed to seed laundry item %q: %v", li.name, err)
+		}
+		if laundryItemID == "" {
+			laundryItemID = id // first one stays the default used by seedOrderContents
+		}
+		log.Printf("laundry item ready: %s (%s, Rp%.0f)", li.name, li.unit, li.basePrice)
 	}
 
 	curugOutlet := outlets["Laundry Kilat - Curug"]

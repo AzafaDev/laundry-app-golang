@@ -14,6 +14,32 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// GetPendingProcessOrders lists orders at this outlet_admin's outlet
+// waiting to be processed (status laundry_arrived_outlet).
+func (h *Handler) GetPendingProcessOrders(c *gin.Context) {
+	outletID, hasOutlet := apphelper.CurrentEmployeeOutletID(c)
+	if !hasOutlet {
+		apperr.RespondError(c, http.StatusForbidden, "no_outlet_assigned")
+		return
+	}
+
+	orders, err := h.Queries.ListOrdersByOutletAndStatus(c.Request.Context(), db.ListOrdersByOutletAndStatusParams{
+		OutletID: outletID,
+		Status:   StatusLaundryArrivedOutlet,
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	data := make([]OrderResponse, 0, len(orders))
+	for _, o := range orders {
+		data = append(data, toOrderResponse(o))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": data})
+}
+
 // ProcessOrder is the outlet_admin action that records actual item/weight
 // counts when laundry arrives at the outlet, transitioning the order from
 // laundry_arrived_outlet to washing. Replicates processOrderSchema from the

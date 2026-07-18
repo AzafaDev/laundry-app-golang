@@ -193,6 +193,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.POST("/api/v1/employee/admin/cron/auto-complete-orders", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerAutoCompleteOrders)
 	router.POST("/api/v1/employee/admin/cron/cleanup-tokens", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), cronHandler.TriggerCleanupTokens)
 
+	router.GET("/api/v1/employee/admin/orders/pending-process", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.GetPendingProcessOrders)
 	router.POST("/api/v1/employee/admin/orders/:id/process", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ProcessOrder)
 
 	router.GET("/api/v1/employee/admin/bypass-requests", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.ListBypassRequests)
