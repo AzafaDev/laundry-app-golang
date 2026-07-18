@@ -333,6 +333,10 @@ func toAdminComplaintResponse(cm db.GetComplaintByIDForAdminRow) AdminComplaintR
 		resp.ResolvedBy = cm.ResolvedBy.String()
 	}
 
+	if cm.ResolvedByName.Valid {
+		resp.ResolvedByName = cm.ResolvedByName.String
+	}
+
 	if cm.ResolvedAt.Valid {
 		resp.ResolvedAt = cm.ResolvedAt.Time.Format(time.RFC3339)
 	}
@@ -365,6 +369,10 @@ func toAdminComplaintResponseFromList(cm db.ListComplaintsForAdminRow) AdminComp
 
 	if cm.ResolvedBy.Valid {
 		resp.ResolvedBy = cm.ResolvedBy.String()
+	}
+
+	if cm.ResolvedByName.Valid {
+		resp.ResolvedByName = cm.ResolvedByName.String
 	}
 
 	if cm.ResolvedAt.Valid {

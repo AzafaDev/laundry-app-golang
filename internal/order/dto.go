@@ -245,6 +245,7 @@ type AdminComplaintResponse struct {
 	ExpectedResolutionDate string `json:"expected_resolution_date,omitempty"`
 	ResolutionNotes        string `json:"resolution_notes,omitempty"`
 	ResolvedBy             string `json:"resolved_by,omitempty"`
+	ResolvedByName         string `json:"resolved_by_name,omitempty"`
 	ResolvedAt             string `json:"resolved_at,omitempty"`
 	Message                string `json:"message,omitempty"`
 }
