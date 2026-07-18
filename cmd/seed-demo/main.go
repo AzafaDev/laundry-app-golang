@@ -87,7 +87,6 @@ func main() {
 	for _, e := range []employeeSeed{
 		{"Budi Santoso", "admin@demo.laundry", "super_admin", "", ""},
 		{"Siti Aminah", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "pagi"},
-		{"Andi Prakoso", "outlet.admin.sore@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "sore"},
 		{"Dewi Lestari", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "pagi"},
 		{"Rian Saputra", "washing.sore@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "sore"},
 		{"Fitriani", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "pagi"},
