@@ -188,6 +188,65 @@ func (h *Handler) fillDiscrepancyNames(ctx context.Context, discrepancies []Disc
 	return nil
 }
 
+// GetStationOrderItems lets a worker preview the items expected to be
+// counted for an order at their station before calling SubmitItems.
+func (h *Handler) GetStationOrderItems(c *gin.Context) {
+	station := c.Param("station")
+	if !isValidStation(station) {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_station")
+		return
+	}
+	if !assertStationAccess(c, station) {
+		return
+	}
+
+	employeeID, err := apphelper.CurrentEmployeeID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	outletID, err := attendance.AssertShiftEligibility(c.Request.Context(), h.Queries, employeeID)
+	if err != nil {
+		respondEligibilityError(c, err)
+		return
+	}
+
+	var orderID pgtype.UUID
+	if err := orderID.Scan(c.Param("orderId")); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_order_id")
+		return
+	}
+
+	order, err := h.Queries.GetOrderByIDAny(c.Request.Context(), orderID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			apperr.RespondError(c, http.StatusNotFound, "order_not_found")
+			return
+		}
+		apperr.RespondInternalError(c, err)
+		return
+	}
+	if order.OutletID != outletID || order.Status != station {
+		apperr.RespondError(c, http.StatusForbidden, "station_access_denied")
+		return
+	}
+
+	expectedBreakdown, expectedSatuan, err := h.expectedItems(c.Request.Context(), orderID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	items, err := h.buildNormalizedItems(c.Request.Context(), expectedBreakdown, expectedSatuan)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
 func (h *Handler) SubmitItems(c *gin.Context) {
 	station := c.Param("station")
 	if !isValidStation(station) {
