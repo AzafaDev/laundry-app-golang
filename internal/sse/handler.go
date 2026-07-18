@@ -31,7 +31,13 @@ func NewHandler(queries *db.Queries, cfg config.Config) *Handler {
 // missing), so this route does its own auth instead of reusing them as
 // middleware.
 func (h *Handler) identify(c *gin.Context) (channels []string, ok bool) {
-	if token, err := c.Cookie("access_token"); err == nil {
+	preferStaff := c.Query("as") == "staff"
+
+	tryCustomer := func() (channels []string, ok bool) {
+		token, err := c.Cookie("access_token")
+		if err != nil {
+			return nil, false
+		}
 		claims, err := auth.VerifyAccessToken(token, h.Cfg.JWTAccessSecret)
 		if err != nil {
 			return nil, false
@@ -39,7 +45,11 @@ func (h *Handler) identify(c *gin.Context) (channels []string, ok bool) {
 		return []string{"user:" + claims.CustomerID}, true
 	}
 
-	if token, err := c.Cookie("staff_access_token"); err == nil {
+	tryStaff := func() (channels []string, ok bool) {
+		token, err := c.Cookie("staff_access_token")
+		if err != nil {
+			return nil, false
+		}
 		claims, err := auth.VerifyEmployeeAccessToken(token, h.Cfg.JWTEmployeeAccessSecret)
 		if err != nil {
 			return nil, false
@@ -62,7 +72,17 @@ func (h *Handler) identify(c *gin.Context) (channels []string, ok bool) {
 		return channels, true
 	}
 
-	return nil, false
+	if preferStaff {
+		if channels, ok := tryStaff(); ok {
+			return channels, true
+		}
+		return tryCustomer()
+	}
+
+	if channels, ok := tryCustomer(); ok {
+		return channels, true
+	}
+	return tryStaff()
 }
 
 func (h *Handler) Stream(c *gin.Context) {

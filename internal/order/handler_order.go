@@ -50,15 +50,17 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	activeOrderCount, err := h.Queries.CountActiveOrdersByCustomer(c.Request.Context(), customerID)
-	if err != nil {
-		apperr.RespondInternalError(c, err)
-		return
-	}
-	if activeOrderCount > 0 {
-		apperr.RespondError(c, http.StatusConflict, "active_order_exists")
-		return
-	}
+	// TEMP: active-order-per-customer check disabled for manual testing.
+	// Re-enable before merging/deploying.
+	// activeOrderCount, err := h.Queries.CountActiveOrdersByCustomer(c.Request.Context(), customerID)
+	// if err != nil {
+	// 	apperr.RespondInternalError(c, err)
+	// 	return
+	// }
+	// if activeOrderCount > 0 {
+	// 	apperr.RespondError(c, http.StatusConflict, "active_order_exists")
+	// 	return
+	// }
 
 	address, err := h.Queries.GetAddressByID(c.Request.Context(), db.GetAddressByIDParams{
 		ID:         pickupAddressID,
