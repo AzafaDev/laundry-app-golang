@@ -18,13 +18,13 @@ func (h *Handler) Profile(c *gin.Context) {
 		return
 	}
 
-	existingEmployee, err := h.Queries.GetEmployeeByID(c.Request.Context(), employeeUUID)
+	existingEmployee, err := h.Queries.GetEmployeeByIDWithOutlet(c.Request.Context(), employeeUUID)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, toEmployeeResponse(existingEmployee))
+	c.JSON(http.StatusOK, toEmployeeResponseWithOutlet(existingEmployee.ID, existingEmployee.FullName, existingEmployee.Email, existingEmployee.Phone, existingEmployee.Role, existingEmployee.OutletID, existingEmployee.IsActive, existingEmployee.DeletedAt, existingEmployee.OutletName, existingEmployee.OutletDeletedAt))
 }
 
 func (h *Handler) ChangePassword(c *gin.Context) {

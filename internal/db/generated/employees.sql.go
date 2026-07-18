@@ -149,6 +149,52 @@ func (q *Queries) GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Emplo
 	return i, err
 }
 
+const getEmployeeByIDWithOutlet = `-- name: GetEmployeeByIDWithOutlet :one
+SELECT employees.id, employees.full_name, employees.email, employees.phone, employees.password_hash, employees.role, employees.is_active, employees.token_version, employees.deleted_at, employees.created_at, employees.updated_at, employees.outlet_id, o.name AS outlet_name, o.deleted_at AS outlet_deleted_at
+FROM employees
+LEFT JOIN outlets o ON o.id = employees.outlet_id
+WHERE employees.id = $1 AND employees.deleted_at IS NULL
+`
+
+type GetEmployeeByIDWithOutletRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	FullName        string             `json:"full_name"`
+	Email           string             `json:"email"`
+	Phone           pgtype.Text        `json:"phone"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	Role            string             `json:"role"`
+	IsActive        bool               `json:"is_active"`
+	TokenVersion    int32              `json:"token_version"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletDeletedAt pgtype.Timestamptz `json:"outlet_deleted_at"`
+}
+
+func (q *Queries) GetEmployeeByIDWithOutlet(ctx context.Context, id pgtype.UUID) (GetEmployeeByIDWithOutletRow, error) {
+	row := q.db.QueryRow(ctx, getEmployeeByIDWithOutlet, id)
+	var i GetEmployeeByIDWithOutletRow
+	err := row.Scan(
+		&i.ID,
+		&i.FullName,
+		&i.Email,
+		&i.Phone,
+		&i.PasswordHash,
+		&i.Role,
+		&i.IsActive,
+		&i.TokenVersion,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OutletID,
+		&i.OutletName,
+		&i.OutletDeletedAt,
+	)
+	return i, err
+}
+
 const getEmployeesByIDs = `-- name: GetEmployeesByIDs :many
 SELECT id, full_name, email, phone, password_hash, role, is_active, token_version, deleted_at, created_at, updated_at, outlet_id FROM employees WHERE id = ANY($1::uuid[])
 `

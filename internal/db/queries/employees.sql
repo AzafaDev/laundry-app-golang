@@ -51,6 +51,12 @@ DELETE FROM employees WHERE id = $1;
 SELECT * FROM employees
 WHERE id = $1 AND deleted_at IS NULL;
 
+-- name: GetEmployeeByIDWithOutlet :one
+SELECT employees.*, o.name AS outlet_name, o.deleted_at AS outlet_deleted_at
+FROM employees
+LEFT JOIN outlets o ON o.id = employees.outlet_id
+WHERE employees.id = $1 AND employees.deleted_at IS NULL;
+
 -- name: GetEmployeeByEmail :one
 SELECT * FROM employees
 WHERE email = $1 AND deleted_at IS NULL;

@@ -44,26 +44,29 @@ func toEmployeeResponse(e db.Employee) EmployeeResponse {
 	return resp
 }
 
-// toEmployeeResponseWithOutlet maps a db.ListEmployeesRow (employees LEFT
-// JOIN outlets) into EmployeeResponse, including the joined outlet name and
-// whether that outlet has been soft-deleted.
-func toEmployeeResponseWithOutlet(row db.ListEmployeesRow) EmployeeResponse {
+// toEmployeeResponseWithOutlet maps an employees LEFT JOIN outlets row into
+// EmployeeResponse, including the joined outlet name and whether that
+// outlet has been soft-deleted. Takes individual fields rather than a
+// specific sqlc row type so it's shared by every query that joins outlets
+// this way (ListEmployees, GetEmployeeByIDWithOutlet, ...) without
+// duplicating the mapping logic per row type.
+func toEmployeeResponseWithOutlet(id pgtype.UUID, fullName, email string, phone pgtype.Text, role string, outletID pgtype.UUID, isActive bool, deletedAt pgtype.Timestamptz, outletName pgtype.Text, outletDeletedAt pgtype.Timestamptz) EmployeeResponse {
 	resp := toEmployeeResponse(db.Employee{
-		ID:        row.ID,
-		FullName:  row.FullName,
-		Email:     row.Email,
-		Phone:     row.Phone,
-		Role:      row.Role,
-		OutletID:  row.OutletID,
-		IsActive:  row.IsActive,
-		DeletedAt: row.DeletedAt,
+		ID:        id,
+		FullName:  fullName,
+		Email:     email,
+		Phone:     phone,
+		Role:      role,
+		OutletID:  outletID,
+		IsActive:  isActive,
+		DeletedAt: deletedAt,
 	})
 
-	if row.OutletName.Valid {
-		name := row.OutletName.String
+	if outletName.Valid {
+		name := outletName.String
 		resp.OutletName = &name
 	}
-	resp.OutletDeleted = row.OutletDeletedAt.Valid
+	resp.OutletDeleted = outletDeletedAt.Valid
 
 	return resp
 }

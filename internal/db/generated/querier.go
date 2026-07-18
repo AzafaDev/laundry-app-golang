@@ -101,6 +101,7 @@ type Querier interface {
 	GetEmployeeByEmail(ctx context.Context, email string) (Employee, error)
 	GetEmployeeByID(ctx context.Context, id pgtype.UUID) (Employee, error)
 	GetEmployeeByIDAny(ctx context.Context, id pgtype.UUID) (Employee, error)
+	GetEmployeeByIDWithOutlet(ctx context.Context, id pgtype.UUID) (GetEmployeeByIDWithOutletRow, error)
 	GetEmployeePasswordResetTokenByHash(ctx context.Context, tokenHash string) (EmployeePasswordResetToken, error)
 	GetEmployeeRefreshTokenByHash(ctx context.Context, tokenHash string) (EmployeeRefreshToken, error)
 	GetEmployeeShiftByEmployeeAndDate(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDateParams) (EmployeeShift, error)

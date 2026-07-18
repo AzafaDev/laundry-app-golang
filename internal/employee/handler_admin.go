@@ -265,7 +265,7 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 
 	data := make([]EmployeeResponse, 0, len(employees))
 	for _, e := range employees {
-		data = append(data, toEmployeeResponseWithOutlet(e))
+		data = append(data, toEmployeeResponseWithOutlet(e.ID, e.FullName, e.Email, e.Phone, e.Role, e.OutletID, e.IsActive, e.DeletedAt, e.OutletName, e.OutletDeletedAt))
 	}
 
 	c.JSON(http.StatusOK, EmployeeListResponse{Data: data, TotalCount: totalCount})
