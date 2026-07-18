@@ -31,6 +31,7 @@ type employeeSeed struct {
 	email    string
 	role     string
 	outlet   string // outlet name, "" for none (super_admin)
+	shift    string // "pagi" or "sore"
 }
 
 type customerSeed struct {
@@ -77,19 +78,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to seed morning shift: %v", err)
 	}
-	_, err = ensureWorkShift(ctx, pool, "Shift Sore", "14:00:00", "22:00:00")
+	eveningShiftID, err := ensureWorkShift(ctx, pool, "Shift Sore", "14:00:00", "22:00:00")
 	if err != nil {
 		log.Fatalf("failed to seed evening shift: %v", err)
 	}
 
 	employeeIDs := map[string]string{} // email -> id
 	for _, e := range []employeeSeed{
-		{"Budi Santoso", "admin@demo.laundry", "super_admin", ""},
-		{"Siti Aminah", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug"},
-		{"Dewi Lestari", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug"},
-		{"Fitriani", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug"},
-		{"Yuni Kartika", "packing@demo.laundry", "packing_worker", "Laundry Kilat - Curug"},
-		{"Dedi Kurniawan", "driver@demo.laundry", "driver", "Laundry Kilat - Curug"},
+		{"Budi Santoso", "admin@demo.laundry", "super_admin", "", ""},
+		{"Siti Aminah", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "pagi"},
+		{"Andi Prakoso", "outlet.admin.sore@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "sore"},
+		{"Dewi Lestari", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Rian Saputra", "washing.sore@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Fitriani", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Bayu Aji", "ironing.sore@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Yuni Kartika", "packing@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Nanda Putri", "packing.sore@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Dedi Kurniawan", "driver@demo.laundry", "driver", "Laundry Kilat - Curug", "pagi"},
+		{"Eko Prasetyo", "driver.sore@demo.laundry", "driver", "Laundry Kilat - Curug", "sore"},
 	} {
 		var outletID *string
 		if e.outlet != "" {
@@ -105,8 +111,12 @@ func main() {
 		log.Printf("employee ready: %s <%s> (%s)", e.fullName, e.email, e.role)
 
 		if e.role != "super_admin" {
-			if err := ensureEmployeeShiftRecurring(ctx, pool, id, morningShiftID, outlets[e.outlet]); err != nil {
-				log.Fatalf("failed to seed today's shift for %q: %v", e.email, err)
+			shiftID := morningShiftID
+			if e.shift == "sore" {
+				shiftID = eveningShiftID
+			}
+			if err := ensureEmployeeShiftRecurring(ctx, pool, id, shiftID, outlets[e.outlet]); err != nil {
+				log.Fatalf("failed to seed shift for %q: %v", e.email, err)
 			}
 		}
 	}
