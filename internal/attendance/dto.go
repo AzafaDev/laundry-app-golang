@@ -14,12 +14,14 @@ type AttendanceResponse struct {
 	ID           string `json:"id"`
 	EmployeeID   string `json:"employee_id"`
 	OutletID     string `json:"outlet_id"`
+	OutletName   string `json:"outlet_name,omitempty"`
 	Date         string `json:"date"`
 	CheckInTime  string `json:"check_in_time,omitempty"`
 	CheckOutTime string `json:"check_out_time,omitempty"`
 	IsLate       bool   `json:"is_late"`
 	LateMinutes  int32  `json:"late_minutes"`
 	Status       string `json:"status"`
+	Notes        string `json:"notes,omitempty"`
 	Message      string `json:"message,omitempty"`
 }
 

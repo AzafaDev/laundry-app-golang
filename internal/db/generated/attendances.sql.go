@@ -308,7 +308,9 @@ func (q *Queries) ListAttendanceReport(ctx context.Context, arg ListAttendanceRe
 }
 
 const listAttendancesByEmployee = `-- name: ListAttendancesByEmployee :many
-SELECT id, employee_id, outlet_id, date, check_in_time, check_in_latitude, check_in_longitude, check_out_time, check_out_latitude, check_out_longitude, notes, is_late, late_minutes, status, created_at, updated_at FROM attendances
+SELECT attendances.id, attendances.employee_id, attendances.outlet_id, attendances.date, attendances.check_in_time, attendances.check_in_latitude, attendances.check_in_longitude, attendances.check_out_time, attendances.check_out_latitude, attendances.check_out_longitude, attendances.notes, attendances.is_late, attendances.late_minutes, attendances.status, attendances.created_at, attendances.updated_at, o.name AS outlet_name
+FROM attendances
+LEFT JOIN outlets o ON o.id = attendances.outlet_id
 WHERE employee_id = $1
 ORDER BY date DESC
 LIMIT $2 OFFSET $3
@@ -320,15 +322,35 @@ type ListAttendancesByEmployeeParams struct {
 	Offset     int32       `json:"offset"`
 }
 
-func (q *Queries) ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]Attendance, error) {
+type ListAttendancesByEmployeeRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	EmployeeID        pgtype.UUID        `json:"employee_id"`
+	OutletID          pgtype.UUID        `json:"outlet_id"`
+	Date              pgtype.Date        `json:"date"`
+	CheckInTime       pgtype.Timestamptz `json:"check_in_time"`
+	CheckInLatitude   pgtype.Numeric     `json:"check_in_latitude"`
+	CheckInLongitude  pgtype.Numeric     `json:"check_in_longitude"`
+	CheckOutTime      pgtype.Timestamptz `json:"check_out_time"`
+	CheckOutLatitude  pgtype.Numeric     `json:"check_out_latitude"`
+	CheckOutLongitude pgtype.Numeric     `json:"check_out_longitude"`
+	Notes             pgtype.Text        `json:"notes"`
+	IsLate            pgtype.Bool        `json:"is_late"`
+	LateMinutes       pgtype.Int4        `json:"late_minutes"`
+	Status            pgtype.Text        `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	OutletName        pgtype.Text        `json:"outlet_name"`
+}
+
+func (q *Queries) ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]ListAttendancesByEmployeeRow, error) {
 	rows, err := q.db.Query(ctx, listAttendancesByEmployee, arg.EmployeeID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Attendance
+	var items []ListAttendancesByEmployeeRow
 	for rows.Next() {
-		var i Attendance
+		var i ListAttendancesByEmployeeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.EmployeeID,
@@ -346,6 +368,7 @@ func (q *Queries) ListAttendancesByEmployee(ctx context.Context, arg ListAttenda
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OutletName,
 		); err != nil {
 			return nil, err
 		}

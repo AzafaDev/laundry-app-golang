@@ -18,7 +18,9 @@ WHERE employee_id = $4 AND date = $5 AND check_out_time IS NULL
 RETURNING *;
 
 -- name: ListAttendancesByEmployee :many
-SELECT * FROM attendances
+SELECT attendances.*, o.name AS outlet_name
+FROM attendances
+LEFT JOIN outlets o ON o.id = attendances.outlet_id
 WHERE employee_id = $1
 ORDER BY date DESC
 LIMIT $2 OFFSET $3;

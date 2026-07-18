@@ -86,6 +86,33 @@ func toAttendanceResponse(a db.Attendance) AttendanceResponse {
 	return resp
 }
 
+// toAttendanceResponseWithOutlet maps an attendances LEFT JOIN outlets row
+// (db.ListAttendancesByEmployeeRow) into AttendanceResponse, including the
+// joined outlet name and the notes column (present on the table since it
+// was created, but never surfaced in a response until now).
+func toAttendanceResponseWithOutlet(a db.ListAttendancesByEmployeeRow) AttendanceResponse {
+	resp := AttendanceResponse{
+		ID:          a.ID.String(),
+		EmployeeID:  a.EmployeeID.String(),
+		OutletID:    a.OutletID.String(),
+		Date:        a.Date.Time.Format("2006-01-02"),
+		IsLate:      a.IsLate.Bool,
+		LateMinutes: a.LateMinutes.Int32,
+		Status:      a.Status.String,
+		Notes:       a.Notes.String,
+	}
+	if a.OutletName.Valid {
+		resp.OutletName = a.OutletName.String
+	}
+	if a.CheckInTime.Valid {
+		resp.CheckInTime = a.CheckInTime.Time.Format(time.RFC3339)
+	}
+	if a.CheckOutTime.Valid {
+		resp.CheckOutTime = a.CheckOutTime.Time.Format(time.RFC3339)
+	}
+	return resp
+}
+
 // AssertShiftEligibility is the exported guard other domains (order/worker,
 // ticket #3) call before allowing pipeline actions: the employee must have
 // an active shift right now, have checked in today, and not have checked

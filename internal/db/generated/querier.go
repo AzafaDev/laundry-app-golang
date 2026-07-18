@@ -133,7 +133,7 @@ type Querier interface {
 	ListActiveOutlets(ctx context.Context) ([]Outlet, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
 	ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]Attendance, error)
-	ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]Attendance, error)
+	ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]ListAttendancesByEmployeeRow, error)
 	ListAvailableDriverTasksByType(ctx context.Context, taskType string) ([]DriverTask, error)
 	ListBypassRequests(ctx context.Context, arg ListBypassRequestsParams) ([]BypassRequest, error)
 	ListBypassRequestsByOrder(ctx context.Context, orderID pgtype.UUID) ([]BypassRequest, error)

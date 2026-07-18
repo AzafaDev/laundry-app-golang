@@ -251,7 +251,7 @@ func (h *Handler) MyAttendanceLogs(c *gin.Context) {
 
 	data := make([]AttendanceResponse, 0, len(logs))
 	for _, a := range logs {
-		data = append(data, toAttendanceResponse(a))
+		data = append(data, toAttendanceResponseWithOutlet(a))
 	}
 
 	c.JSON(http.StatusOK, AttendanceListResponse{Data: data, TotalCount: totalCount})

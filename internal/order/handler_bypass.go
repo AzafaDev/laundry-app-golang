@@ -418,7 +418,16 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		return
 	}
 
-	if !req.Approve {
+	// The last allowed attempt for a station is always force-approved,
+	// regardless of the admin's decision — rejecting it would leave the order
+	// permanently stuck (no more bypass attempts allowed, and the physical
+	// item count that caused the mismatch in the first place still won't
+	// match). Admin notes are still recorded for audit, they just no longer
+	// have the power to block progress at this point.
+	forceApprove := bypass.AttemptNumber >= MaxBypassAttemptsPerStation
+	approve := req.Approve || forceApprove
+
+	if !approve {
 		reviewed, err := h.Queries.ReviewBypassRequest(c.Request.Context(), db.ReviewBypassRequestParams{
 			Status:     "rejected",
 			ReviewedBy: adminID,
@@ -520,6 +529,9 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 
 	resp := toOrderResponse(updated)
 	resp.Message = "station completed successfully"
+	if forceApprove && !req.Approve {
+		resp.Message = "station completed successfully (bypass force-approved: last attempt for this station)"
+	}
 	c.JSON(http.StatusOK, SubmitItemsResponse{Success: true, Data: &resp})
 }
 
