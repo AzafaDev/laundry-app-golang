@@ -34,6 +34,18 @@ func (q *Queries) CountWorkShifts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countWorkShiftsDeleted = `-- name: CountWorkShiftsDeleted :one
+SELECT count(*) FROM work_shifts
+WHERE deleted_at IS NOT NULL
+`
+
+func (q *Queries) CountWorkShiftsDeleted(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkShiftsDeleted)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createWorkShift = `-- name: CreateWorkShift :one
 INSERT INTO work_shifts (name, start_time, end_time, description, is_active)
 VALUES ($1, $2, $3, $4, $5)
@@ -136,6 +148,47 @@ type ListWorkShiftsParams struct {
 
 func (q *Queries) ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error) {
 	rows, err := q.db.Query(ctx, listWorkShifts, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WorkShift
+	for rows.Next() {
+		var i WorkShift
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Description,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkShiftsDeleted = `-- name: ListWorkShiftsDeleted :many
+SELECT id, name, start_time, end_time, description, is_active, created_at, deleted_at FROM work_shifts
+WHERE deleted_at IS NOT NULL
+ORDER BY name
+LIMIT $1 OFFSET $2
+`
+
+type ListWorkShiftsDeletedParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListWorkShiftsDeleted(ctx context.Context, arg ListWorkShiftsDeletedParams) ([]WorkShift, error) {
+	rows, err := q.db.Query(ctx, listWorkShiftsDeleted, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

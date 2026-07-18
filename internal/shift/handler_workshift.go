@@ -180,6 +180,32 @@ func (h *Handler) SoftDeleteWorkShift(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "work shift deleted successfully"})
 }
 
+func (h *Handler) ListWorkShiftsDeleted(c *gin.Context) {
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
+
+	shifts, err := h.Queries.ListWorkShiftsDeleted(c.Request.Context(), db.ListWorkShiftsDeletedParams{
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	totalCount, err := h.Queries.CountWorkShiftsDeleted(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	data := make([]WorkShiftResponse, 0, len(shifts))
+	for _, ws := range shifts {
+		data = append(data, toWorkShiftResponse(ws))
+	}
+
+	c.JSON(http.StatusOK, WorkShiftListResponse{Data: data, TotalCount: totalCount})
+}
+
 func (h *Handler) HardDeleteWorkShift(c *gin.Context) {
 	var shiftID pgtype.UUID
 	if err := shiftID.Scan(c.Param("id")); err != nil {

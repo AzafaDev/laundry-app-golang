@@ -38,3 +38,13 @@ WHERE id = $1;
 -- name: CountActiveEmployeeShiftsByShiftID :one
 SELECT count(*) FROM employee_shifts
 WHERE shift_id = $1 AND is_active = true;
+
+-- name: ListWorkShiftsDeleted :many
+SELECT * FROM work_shifts
+WHERE deleted_at IS NOT NULL
+ORDER BY name
+LIMIT $1 OFFSET $2;
+
+-- name: CountWorkShiftsDeleted :one
+SELECT count(*) FROM work_shifts
+WHERE deleted_at IS NOT NULL;

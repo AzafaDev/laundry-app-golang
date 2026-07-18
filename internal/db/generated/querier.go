@@ -47,6 +47,7 @@ type Querier interface {
 	CountUnreadCustomerNotifications(ctx context.Context, customerID pgtype.UUID) (int64, error)
 	CountUnreadEmployeeNotifications(ctx context.Context, employeeID pgtype.UUID) (int64, error)
 	CountWorkShifts(ctx context.Context) (int64, error)
+	CountWorkShiftsDeleted(ctx context.Context) (int64, error)
 	CreateAbsentAttendance(ctx context.Context, arg CreateAbsentAttendanceParams) (Attendance, error)
 	CreateAddress(ctx context.Context, arg CreateAddressParams) (CreateAddressRow, error)
 	CreateAttendance(ctx context.Context, arg CreateAttendanceParams) (Attendance, error)
@@ -164,6 +165,7 @@ type Querier interface {
 	ListProvinces(ctx context.Context) ([]Province, error)
 	ListStationHistoryByEmployee(ctx context.Context, arg ListStationHistoryByEmployeeParams) ([]ListStationHistoryByEmployeeRow, error)
 	ListWorkShifts(ctx context.Context, arg ListWorkShiftsParams) ([]WorkShift, error)
+	ListWorkShiftsDeleted(ctx context.Context, arg ListWorkShiftsDeletedParams) ([]WorkShift, error)
 	MarkAllCustomerNotificationsRead(ctx context.Context, customerID pgtype.UUID) error
 	MarkAllEmployeeNotificationsRead(ctx context.Context, employeeID pgtype.UUID) error
 	MarkCustomerNotificationRead(ctx context.Context, arg MarkCustomerNotificationReadParams) error

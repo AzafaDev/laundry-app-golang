@@ -170,6 +170,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.DELETE("/api/v1/employee/admin/clothing-types/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.SoftDeleteClothingType)
 
 	router.GET("/api/v1/employee/admin/shifts", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.ListWorkShifts)
+	router.GET("/api/v1/employee/admin/shifts/deleted", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.ListWorkShiftsDeleted)
 	router.GET("/api/v1/employee/admin/shifts/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), shiftHandler.GetWorkShiftByID)
 	router.POST("/api/v1/employee/admin/shifts", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), shiftHandler.CreateWorkShift)
 	router.PATCH("/api/v1/employee/admin/shifts/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), shiftHandler.UpdateWorkShift)
