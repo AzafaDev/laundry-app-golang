@@ -415,20 +415,25 @@ func ensureOrder(ctx context.Context, pool *pgxpool.Pool, invoiceNumber, custome
 
 // seedOrderContents adds order_items/order_item_breakdowns so the order
 // doesn't look empty in the UI, plus whatever driver_tasks/payments row
-// matches its pipeline stage.
+// matches its pipeline stage. Skipped for laundry_arrived_outlet: that's the
+// exact status ProcessOrder expects to act on, and ProcessOrder 409s with
+// "order_already_processed" if order_items already exist — pre-seeding
+// items there would make the process-order flow untestable in the browser.
 func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothingTypeID, laundryItemID, createdByEmployeeID, status string) error {
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO order_items (order_id, laundry_item_id, quantity, price_at_order)
-		VALUES ($1, $2, 3, 7000)
-	`, orderID, laundryItemID); err != nil {
-		return fmt.Errorf("order_items: %w", err)
-	}
+	if status != "laundry_arrived_outlet" {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO order_items (order_id, laundry_item_id, quantity, price_at_order)
+			VALUES ($1, $2, 3, 7000)
+		`, orderID, laundryItemID); err != nil {
+			return fmt.Errorf("order_items: %w", err)
+		}
 
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO order_item_breakdowns (order_id, clothing_type_id, quantity, created_by)
-		VALUES ($1, $2, 5, $3)
-	`, orderID, clothingTypeID, createdByEmployeeID); err != nil {
-		return fmt.Errorf("order_item_breakdowns: %w", err)
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO order_item_breakdowns (order_id, clothing_type_id, quantity, created_by)
+			VALUES ($1, $2, 5, $3)
+		`, orderID, clothingTypeID, createdByEmployeeID); err != nil {
+			return fmt.Errorf("order_item_breakdowns: %w", err)
+		}
 	}
 
 	switch status {
