@@ -17,6 +17,7 @@ type OrderResponse struct {
 	Status          string  `json:"status"`
 	PickupDate      string  `json:"pickup_date"`
 	DeliveryFee     float64 `json:"delivery_fee"`
+	TotalWeightKG   float64 `json:"total_weight_kg,omitempty"`
 	TotalPrice      float64 `json:"total_price"`
 	CreatedAt       string  `json:"created_at"`
 	BypassStatus    string  `json:"bypass_status,omitempty"` // "pending" | "rejected" (kosong = belum pernah/gak relevan)
@@ -188,7 +189,7 @@ type BypassListResponse struct {
 
 type ReviewBypassRequestBody struct {
 	Approve    bool   `json:"approve"`
-	AdminNotes string `json:"admin_notes"`
+	AdminNotes string `json:"admin_notes" binding:"required"`
 }
 
 type DriverTaskResponse struct {

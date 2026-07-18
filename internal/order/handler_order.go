@@ -231,6 +231,75 @@ func (h *Handler) ListOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, OrderListResponse{Data: data, TotalCount: totalCount})
 }
 
+// ListOutletOrders is ListOrders' outlet_admin-facing counterpart: same
+// filters/pagination, scoped to the caller's outlet instead of a customer.
+func (h *Handler) ListOutletOrders(c *gin.Context) {
+	outletID, hasOutlet := apphelper.CurrentEmployeeOutletID(c)
+	if !hasOutlet {
+		apperr.RespondError(c, http.StatusForbidden, "no_outlet_assigned")
+		return
+	}
+
+	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
+
+	status := pgtype.Text{Valid: false}
+	if v := c.Query("status"); v != "" {
+		status = pgtype.Text{String: v, Valid: true}
+	}
+
+	search := pgtype.Text{Valid: false}
+	if v := c.Query("search"); v != "" {
+		search = pgtype.Text{String: v, Valid: true}
+	}
+
+	dateFrom := pgtype.Timestamptz{Valid: false}
+	if v := c.Query("date_from"); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			dateFrom = pgtype.Timestamptz{Time: t, Valid: true}
+		}
+	}
+
+	dateTo := pgtype.Timestamptz{Valid: false}
+	if v := c.Query("date_to"); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			dateTo = pgtype.Timestamptz{Time: t.Add(24*time.Hour - time.Nanosecond), Valid: true}
+		}
+	}
+
+	orders, err := h.Queries.ListOrdersByOutlet(c.Request.Context(), db.ListOrdersByOutletParams{
+		OutletID: outletID,
+		Status:   status,
+		Search:   search,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+		Limit:    limit,
+		Offset:   offset,
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	totalCount, err := h.Queries.CountOrdersByOutlet(c.Request.Context(), db.CountOrdersByOutletParams{
+		OutletID: outletID,
+		Status:   status,
+		Search:   search,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+	})
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	data := make([]OrderResponse, 0, len(orders))
+	for _, o := range orders {
+		data = append(data, toOrderResponseFromListRow(db.ListOrdersRow(o)))
+	}
+
+	c.JSON(http.StatusOK, OrderListResponse{Data: data, TotalCount: totalCount})
+}
+
 // GetOrderDetail returns a single order enriched with outlet info, items,
 // breakdown, status history, payment (if any), and complaints, for the
 // customer order detail page.
@@ -447,6 +516,7 @@ func toOrderResponse(o db.Order) OrderResponse {
 		Status:          o.Status,
 		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
 		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalWeightKG:   apphelper.NumericToFloat64(o.TotalWeightKg),
 		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
 	}
@@ -463,6 +533,7 @@ func toOrderResponseFromListRow(o db.ListOrdersRow) OrderResponse {
 		Status:          o.Status,
 		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
 		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalWeightKG:   apphelper.NumericToFloat64(o.TotalWeightKg),
 		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
 	}
@@ -479,6 +550,7 @@ func toOrderResponseFromDetailRow(o db.GetOrderByIDWithOutletRow) OrderResponse 
 		Status:          o.Status,
 		PickupDate:      o.PickupDate.Time.Format("2006-01-02"),
 		DeliveryFee:     apphelper.NumericToFloat64(o.DeliveryFee),
+		TotalWeightKG:   apphelper.NumericToFloat64(o.TotalWeightKg),
 		TotalPrice:      apphelper.NumericToFloat64(o.TotalPrice),
 		CreatedAt:       o.CreatedAt.Time.Format(time.RFC3339),
 	}

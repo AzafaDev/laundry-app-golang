@@ -137,6 +137,36 @@ func (q *Queries) CountOrders(ctx context.Context, arg CountOrdersParams) (int64
 	return count, err
 }
 
+const countOrdersByOutlet = `-- name: CountOrdersByOutlet :one
+SELECT count(*) FROM orders
+WHERE outlet_id = $1
+  AND ($2::text IS NULL OR status = $2)
+  AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
+  AND ($4::timestamptz IS NULL OR created_at >= $4)
+  AND ($5::timestamptz IS NULL OR created_at <= $5)
+`
+
+type CountOrdersByOutletParams struct {
+	OutletID pgtype.UUID        `json:"outlet_id"`
+	Status   pgtype.Text        `json:"status"`
+	Search   pgtype.Text        `json:"search"`
+	DateFrom pgtype.Timestamptz `json:"date_from"`
+	DateTo   pgtype.Timestamptz `json:"date_to"`
+}
+
+func (q *Queries) CountOrdersByOutlet(ctx context.Context, arg CountOrdersByOutletParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOrdersByOutlet,
+		arg.OutletID,
+		arg.Status,
+		arg.Search,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -396,6 +426,93 @@ func (q *Queries) ListOrders(ctx context.Context, arg ListOrdersParams) ([]ListO
 	var items []ListOrdersRow
 	for rows.Next() {
 		var i ListOrdersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InvoiceNumber,
+			&i.CustomerID,
+			&i.OutletID,
+			&i.PickupAddressID,
+			&i.Status,
+			&i.PickupDate,
+			&i.DeliveryFee,
+			&i.TotalPrice,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalWeightKg,
+			&i.PickupSchedule,
+			&i.AutoConfirmAt,
+			&i.OutletName,
+			&i.OutletAddress,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrdersByOutlet = `-- name: ListOrdersByOutlet :many
+SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+WHERE orders.outlet_id = $1
+  AND ($2::text IS NULL OR orders.status = $2)
+  AND ($3::text IS NULL OR orders.invoice_number ILIKE '%' || $3 || '%')
+  AND ($4::timestamptz IS NULL OR orders.created_at >= $4)
+  AND ($5::timestamptz IS NULL OR orders.created_at <= $5)
+ORDER BY orders.created_at DESC
+LIMIT $7 OFFSET $6
+`
+
+type ListOrdersByOutletParams struct {
+	OutletID pgtype.UUID        `json:"outlet_id"`
+	Status   pgtype.Text        `json:"status"`
+	Search   pgtype.Text        `json:"search"`
+	DateFrom pgtype.Timestamptz `json:"date_from"`
+	DateTo   pgtype.Timestamptz `json:"date_to"`
+	Offset   int32              `json:"offset"`
+	Limit    int32              `json:"limit"`
+}
+
+type ListOrdersByOutletRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	InvoiceNumber   string             `json:"invoice_number"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	PickupAddressID pgtype.UUID        `json:"pickup_address_id"`
+	Status          string             `json:"status"`
+	PickupDate      pgtype.Date        `json:"pickup_date"`
+	DeliveryFee     pgtype.Numeric     `json:"delivery_fee"`
+	TotalPrice      pgtype.Numeric     `json:"total_price"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+	PickupSchedule  pgtype.Timestamptz `json:"pickup_schedule"`
+	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletAddress   pgtype.Text        `json:"outlet_address"`
+}
+
+func (q *Queries) ListOrdersByOutlet(ctx context.Context, arg ListOrdersByOutletParams) ([]ListOrdersByOutletRow, error) {
+	rows, err := q.db.Query(ctx, listOrdersByOutlet,
+		arg.OutletID,
+		arg.Status,
+		arg.Search,
+		arg.DateFrom,
+		arg.DateTo,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrdersByOutletRow
+	for rows.Next() {
+		var i ListOrdersByOutletRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.InvoiceNumber,

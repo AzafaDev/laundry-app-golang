@@ -33,6 +33,26 @@ WHERE customer_id = sqlc.arg('customer_id')
   AND (sqlc.narg('date_from')::timestamptz IS NULL OR created_at >= sqlc.narg('date_from'))
   AND (sqlc.narg('date_to')::timestamptz IS NULL OR created_at <= sqlc.narg('date_to'));
 
+-- name: ListOrdersByOutlet :many
+SELECT orders.*, o.name AS outlet_name, o.address AS outlet_address
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+WHERE orders.outlet_id = sqlc.arg('outlet_id')
+  AND (sqlc.narg('status')::text IS NULL OR orders.status = sqlc.narg('status'))
+  AND (sqlc.narg('search')::text IS NULL OR orders.invoice_number ILIKE '%' || sqlc.narg('search') || '%')
+  AND (sqlc.narg('date_from')::timestamptz IS NULL OR orders.created_at >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::timestamptz IS NULL OR orders.created_at <= sqlc.narg('date_to'))
+ORDER BY orders.created_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: CountOrdersByOutlet :one
+SELECT count(*) FROM orders
+WHERE outlet_id = sqlc.arg('outlet_id')
+  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status'))
+  AND (sqlc.narg('search')::text IS NULL OR invoice_number ILIKE '%' || sqlc.narg('search') || '%')
+  AND (sqlc.narg('date_from')::timestamptz IS NULL OR created_at >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::timestamptz IS NULL OR created_at <= sqlc.narg('date_to'));
+
 -- name: CountActiveOrdersByCustomer :one
 SELECT COUNT(*) FROM orders
 WHERE customer_id = $1 AND status != 'completed';
