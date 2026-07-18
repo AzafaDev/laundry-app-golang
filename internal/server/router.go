@@ -156,14 +156,14 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.GET("/api/v1/employee/admin/geocode/search", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.SearchGeocode)
 
-	router.GET("/api/v1/employee/admin/laundry-items", employeeAuthMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.ListLaundryItems)
+	router.GET("/api/v1/employee/admin/laundry-items", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), laundryItemHandler.ListLaundryItems)
 	router.GET("/api/v1/employee/admin/laundry-items/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.GetLaundryItemByID)
 	router.POST("/api/v1/employee/admin/laundry-items", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.CreateLaundryItem)
 	router.PATCH("/api/v1/employee/admin/laundry-items/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.UpdateLaundryItem)
 	router.DELETE("/api/v1/employee/admin/laundry-items/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.SoftDeleteLaundryItem)
 	router.DELETE("/api/v1/employee/admin/laundry-items/:id/permanent", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), laundryItemHandler.HardDeleteLaundryItem)
 
-	router.GET("/api/v1/employee/admin/clothing-types", employeeAuthMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.ListClothingTypes)
+	router.GET("/api/v1/employee/admin/clothing-types", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), clothingTypeHandler.ListClothingTypes)
 	router.GET("/api/v1/employee/admin/clothing-types/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.GetClothingTypeByID)
 	router.POST("/api/v1/employee/admin/clothing-types", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.CreateClothingType)
 	router.PATCH("/api/v1/employee/admin/clothing-types/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), clothingTypeHandler.UpdateClothingType)
