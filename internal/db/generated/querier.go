@@ -108,6 +108,7 @@ type Querier interface {
 	GetEmployeeShiftByEmployeeAndDayOfWeek(ctx context.Context, arg GetEmployeeShiftByEmployeeAndDayOfWeekParams) (EmployeeShift, error)
 	GetEmployeeShiftByID(ctx context.Context, arg GetEmployeeShiftByIDParams) (EmployeeShift, error)
 	GetEmployeesByIDs(ctx context.Context, ids []pgtype.UUID) ([]Employee, error)
+	GetLatestBypassStatusByOrder(ctx context.Context, orderID pgtype.UUID) (string, error)
 	GetLaundryItemByID(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetLaundryItemByIDAny(ctx context.Context, id pgtype.UUID) (LaundryItem, error)
 	GetMostRecentAddress(ctx context.Context, customerID pgtype.UUID) (CustomerAddress, error)

@@ -125,6 +125,20 @@ func (q *Queries) GetBypassRequestByID(ctx context.Context, id pgtype.UUID) (Byp
 	return i, err
 }
 
+const getLatestBypassStatusByOrder = `-- name: GetLatestBypassStatusByOrder :one
+SELECT status FROM bypass_requests
+WHERE order_id = $1
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestBypassStatusByOrder(ctx context.Context, orderID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getLatestBypassStatusByOrder, orderID)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
 const getPendingBypassRequest = `-- name: GetPendingBypassRequest :one
 SELECT id, order_id, station, requested_by, expected_items, actual_items, discrepancy_description, photo_evidence, attempt_number, status, reviewed_by, admin_notes, resolved_at, created_at FROM bypass_requests
 WHERE order_id = $1 AND station = $2 AND status = 'pending'

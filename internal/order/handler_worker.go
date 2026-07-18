@@ -86,7 +86,18 @@ func (h *Handler) GetStationOrders(c *gin.Context) {
 
 	data := make([]OrderResponse, 0, len(orders))
 	for _, o := range orders {
-		data = append(data, toOrderResponse(o))
+		resp := toOrderResponse(o)
+
+		bypassStatus, err := h.Queries.GetLatestBypassStatusByOrder(c.Request.Context(), o.ID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			apperr.RespondInternalError(c, err)
+			return
+		}
+		if err == nil && bypassStatus != "approved" {
+			resp.BypassStatus = bypassStatus
+		}
+
+		data = append(data, resp)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": data})

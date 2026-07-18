@@ -19,6 +19,7 @@ type OrderResponse struct {
 	DeliveryFee     float64 `json:"delivery_fee"`
 	TotalPrice      float64 `json:"total_price"`
 	CreatedAt       string  `json:"created_at"`
+	BypassStatus    string  `json:"bypass_status,omitempty"` // "pending" | "rejected" (kosong = belum pernah/gak relevan)
 	Message         string  `json:"message,omitempty"`
 }
 

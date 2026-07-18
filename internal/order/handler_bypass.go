@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"laundry-app-with-golang/internal/apperr"
 	"laundry-app-with-golang/internal/apphelper"
 	"laundry-app-with-golang/internal/attendance"
 	db "laundry-app-with-golang/internal/db/generated"
+	"laundry-app-with-golang/internal/notification"
 	"laundry-app-with-golang/internal/sse"
 	"net/http"
 
@@ -225,6 +227,11 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		"status":   "pending",
 	})
 
+	_ = notification.NotifyOutletEmployees(c.Request.Context(), h.Queries, ord.OutletID, []string{"outlet_admin"},
+		"Permintaan bypass baru",
+		fmt.Sprintf("Pesanan %s butuh review bypass di station %s.", ord.InvoiceNumber, station),
+		notification.TypeBypassCreated, created.ID)
+
 	resp, err := h.toBypassResponse(c.Request.Context(), created)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
@@ -434,6 +441,11 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 			"adminNotes":    req.AdminNotes,
 		})
 
+		_ = notification.NotifyEmployee(c.Request.Context(), h.Queries, reviewed.RequestedBy,
+			"Bypass ditolak",
+			fmt.Sprintf("Permintaan bypass untuk pesanan %s ditolak admin.", ord.InvoiceNumber),
+			notification.TypeBypassRejected, reviewed.ID)
+
 		resp, err := h.toBypassResponse(c.Request.Context(), reviewed)
 		if err != nil {
 			apperr.RespondInternalError(c, err)
@@ -498,6 +510,12 @@ func (h *Handler) ReviewBypassRequest(c *gin.Context) {
 		"invoiceNumber": ord.InvoiceNumber,
 		"adminNotes":    req.AdminNotes,
 	})
+
+	_ = notification.NotifyEmployee(c.Request.Context(), h.Queries, reviewed.RequestedBy,
+		"Bypass disetujui",
+		fmt.Sprintf("Permintaan bypass untuk pesanan %s disetujui, order lanjut diproses.", ord.InvoiceNumber),
+		notification.TypeBypassApproved, reviewed.ID)
+
 	h.broadcastStationCompletion(c.Request.Context(), updated, adminID, reviewed.Station, nextStatus, paidDeliveryTask)
 
 	resp := toOrderResponse(updated)

@@ -42,3 +42,9 @@ UPDATE bypass_requests
 SET status = $1, reviewed_by = $2, admin_notes = $3, resolved_at = now()
 WHERE id = $4 AND status = 'pending'
 RETURNING *;
+
+-- name: GetLatestBypassStatusByOrder :one
+SELECT status FROM bypass_requests
+WHERE order_id = $1
+ORDER BY created_at DESC
+LIMIT 1;

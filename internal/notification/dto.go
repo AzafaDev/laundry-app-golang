@@ -13,6 +13,9 @@ const (
 	TypeDriverArrivedOutlet   = "driver_arrived_outlet"
 	TypeDriverArrivedCustomer = "driver_arrived_customer"
 	TypeComplaintUpdate       = "complaint_update"
+	TypeBypassCreated         = "bypass_created"
+	TypeBypassApproved        = "bypass_approved"
+	TypeBypassRejected        = "bypass_rejected"
 )
 
 type NotificationResponse struct {
