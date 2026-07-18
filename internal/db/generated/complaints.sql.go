@@ -130,6 +130,59 @@ func (q *Queries) GetComplaintByID(ctx context.Context, id pgtype.UUID) (Complai
 	return i, err
 }
 
+const getComplaintByIDForAdmin = `-- name: GetComplaintByIDForAdmin :one
+SELECT c.id, c.order_id, c.customer_id, c.complaint_type, c.description, c.photo_urls, c.status,
+       c.expected_resolution_date, c.resolved_by, c.resolution_notes, c.resolved_at, c.created_at, c.updated_at,
+       o.invoice_number, cu.full_name AS customer_name, cu.phone AS customer_phone
+FROM complaints c
+JOIN orders o ON o.id = c.order_id
+JOIN customers cu ON cu.id = c.customer_id
+WHERE c.id = $1
+`
+
+type GetComplaintByIDForAdminRow struct {
+	ID                     pgtype.UUID        `json:"id"`
+	OrderID                pgtype.UUID        `json:"order_id"`
+	CustomerID             pgtype.UUID        `json:"customer_id"`
+	ComplaintType          string             `json:"complaint_type"`
+	Description            string             `json:"description"`
+	PhotoUrls              []string           `json:"photo_urls"`
+	Status                 string             `json:"status"`
+	ExpectedResolutionDate pgtype.Date        `json:"expected_resolution_date"`
+	ResolvedBy             pgtype.UUID        `json:"resolved_by"`
+	ResolutionNotes        pgtype.Text        `json:"resolution_notes"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber          string             `json:"invoice_number"`
+	CustomerName           string             `json:"customer_name"`
+	CustomerPhone          pgtype.Text        `json:"customer_phone"`
+}
+
+func (q *Queries) GetComplaintByIDForAdmin(ctx context.Context, id pgtype.UUID) (GetComplaintByIDForAdminRow, error) {
+	row := q.db.QueryRow(ctx, getComplaintByIDForAdmin, id)
+	var i GetComplaintByIDForAdminRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.CustomerID,
+		&i.ComplaintType,
+		&i.Description,
+		&i.PhotoUrls,
+		&i.Status,
+		&i.ExpectedResolutionDate,
+		&i.ResolvedBy,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InvoiceNumber,
+		&i.CustomerName,
+		&i.CustomerPhone,
+	)
+	return i, err
+}
+
 const listComplaints = `-- name: ListComplaints :many
 SELECT c.id, c.order_id, c.customer_id, c.complaint_type, c.description, c.photo_urls, c.status, c.expected_resolution_date, c.resolved_by, c.resolution_notes, c.resolved_at, c.created_at, c.updated_at FROM complaints c
 JOIN orders o ON o.id = c.order_id
@@ -217,6 +270,90 @@ func (q *Queries) ListComplaintsByOrder(ctx context.Context, orderID pgtype.UUID
 			&i.ResolvedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listComplaintsForAdmin = `-- name: ListComplaintsForAdmin :many
+SELECT c.id, c.order_id, c.customer_id, c.complaint_type, c.description, c.photo_urls, c.status,
+       c.expected_resolution_date, c.resolved_by, c.resolution_notes, c.resolved_at, c.created_at, c.updated_at,
+       o.invoice_number, cu.full_name AS customer_name, cu.phone AS customer_phone
+FROM complaints c
+JOIN orders o ON o.id = c.order_id
+JOIN customers cu ON cu.id = c.customer_id
+WHERE ($1::uuid IS NULL OR o.outlet_id = $1)
+  AND ($2::text IS NULL OR c.status = $2)
+  AND ($3::text IS NULL OR o.invoice_number ILIKE '%' || $3 || '%')
+ORDER BY c.created_at DESC
+LIMIT $5 OFFSET $4
+`
+
+type ListComplaintsForAdminParams struct {
+	OutletID pgtype.UUID `json:"outlet_id"`
+	Status   pgtype.Text `json:"status"`
+	Search   pgtype.Text `json:"search"`
+	Offset   int32       `json:"offset"`
+	Limit    int32       `json:"limit"`
+}
+
+type ListComplaintsForAdminRow struct {
+	ID                     pgtype.UUID        `json:"id"`
+	OrderID                pgtype.UUID        `json:"order_id"`
+	CustomerID             pgtype.UUID        `json:"customer_id"`
+	ComplaintType          string             `json:"complaint_type"`
+	Description            string             `json:"description"`
+	PhotoUrls              []string           `json:"photo_urls"`
+	Status                 string             `json:"status"`
+	ExpectedResolutionDate pgtype.Date        `json:"expected_resolution_date"`
+	ResolvedBy             pgtype.UUID        `json:"resolved_by"`
+	ResolutionNotes        pgtype.Text        `json:"resolution_notes"`
+	ResolvedAt             pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	InvoiceNumber          string             `json:"invoice_number"`
+	CustomerName           string             `json:"customer_name"`
+	CustomerPhone          pgtype.Text        `json:"customer_phone"`
+}
+
+func (q *Queries) ListComplaintsForAdmin(ctx context.Context, arg ListComplaintsForAdminParams) ([]ListComplaintsForAdminRow, error) {
+	rows, err := q.db.Query(ctx, listComplaintsForAdmin,
+		arg.OutletID,
+		arg.Status,
+		arg.Search,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListComplaintsForAdminRow
+	for rows.Next() {
+		var i ListComplaintsForAdminRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrderID,
+			&i.CustomerID,
+			&i.ComplaintType,
+			&i.Description,
+			&i.PhotoUrls,
+			&i.Status,
+			&i.ExpectedResolutionDate,
+			&i.ResolvedBy,
+			&i.ResolutionNotes,
+			&i.ResolvedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InvoiceNumber,
+			&i.CustomerName,
+			&i.CustomerPhone,
 		); err != nil {
 			return nil, err
 		}

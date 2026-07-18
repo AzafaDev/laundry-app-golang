@@ -59,7 +59,7 @@ func (h *Handler) ListComplaints(c *gin.Context) {
 		search = pgtype.Text{String: v, Valid: true}
 	}
 
-	rows, err := h.Queries.ListComplaints(c.Request.Context(), db.ListComplaintsParams{
+	rows, err := h.Queries.ListComplaintsForAdmin(c.Request.Context(), db.ListComplaintsForAdminParams{
 		OutletID: outletFilter,
 		Status:   status,
 		Search:   search,
@@ -81,12 +81,12 @@ func (h *Handler) ListComplaints(c *gin.Context) {
 		return
 	}
 
-	data := make([]ComplaintResponse, 0, len(rows))
+	data := make([]AdminComplaintResponse, 0, len(rows))
 	for _, cm := range rows {
-		data = append(data, toComplaintResponse(cm))
+		data = append(data, toAdminComplaintResponseFromList(cm))
 	}
 
-	c.JSON(http.StatusOK, ComplaintListResponse{Data: data, TotalCount: totalCount})
+	c.JSON(http.StatusOK, AdminComplaintListResponse{Data: data, TotalCount: totalCount})
 }
 
 func (h *Handler) GetComplaintStats(c *gin.Context) {
@@ -135,6 +135,18 @@ func (h *Handler) complaintOutletMatch(c *gin.Context, cm db.Complaint) bool {
 	return ord.OutletID == outletID
 }
 
+func (h *Handler) complaintOutletMatchForAdmin(c *gin.Context, orderID pgtype.UUID) bool {
+	outletID, scoped := complaintListFilter(c)
+	if !scoped {
+		return true
+	}
+	ord, err := h.Queries.GetOrderByIDAny(c.Request.Context(), orderID)
+	if err != nil {
+		return false
+	}
+	return ord.OutletID == outletID
+}
+
 func (h *Handler) GetComplaintByID(c *gin.Context) {
 	var complaintID pgtype.UUID
 	if err := complaintID.Scan(c.Param("id")); err != nil {
@@ -142,7 +154,7 @@ func (h *Handler) GetComplaintByID(c *gin.Context) {
 		return
 	}
 
-	cm, err := h.Queries.GetComplaintByID(c.Request.Context(), complaintID)
+	cm, err := h.Queries.GetComplaintByIDForAdmin(c.Request.Context(), complaintID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		apperr.RespondError(c, http.StatusNotFound, "complaint_not_found")
 		return
@@ -152,12 +164,12 @@ func (h *Handler) GetComplaintByID(c *gin.Context) {
 		return
 	}
 
-	if !h.complaintOutletMatch(c, cm) {
+	if !h.complaintOutletMatchForAdmin(c, cm.OrderID) {
 		apperr.RespondError(c, http.StatusNotFound, "complaint_not_found")
 		return
 	}
 
-	c.JSON(http.StatusOK, toComplaintResponse(cm))
+	c.JSON(http.StatusOK, toAdminComplaintResponse(cm))
 }
 
 func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
@@ -269,7 +281,14 @@ func (h *Handler) UpdateComplaintStatus(c *gin.Context) {
 		"status":      updated.Status,
 	})
 
-	resp := toComplaintResponse(updated)
+	// Fetch full admin details for response
+	adminComplaint, err := h.Queries.GetComplaintByIDForAdmin(c.Request.Context(), complaintID)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	resp := toAdminComplaintResponse(adminComplaint)
 	resp.Message = "complaint status updated successfully"
 	c.JSON(http.StatusOK, resp)
 }
@@ -285,4 +304,72 @@ func complaintStatusNotificationText(status string) (title, body string) {
 	default:
 		return "Status komplain diperbarui", "Status komplain Anda telah diperbarui."
 	}
+}
+
+func toAdminComplaintResponse(cm db.GetComplaintByIDForAdminRow) AdminComplaintResponse {
+	resp := AdminComplaintResponse{
+		ID:            cm.ID.String(),
+		OrderID:       cm.OrderID.String(),
+		InvoiceNumber: cm.InvoiceNumber,
+		CustomerID:    cm.CustomerID.String(),
+		CustomerName:  cm.CustomerName,
+		CustomerPhone: cm.CustomerPhone.String,
+		ComplaintType: cm.ComplaintType,
+		Description:   cm.Description,
+		PhotoURLs:     cm.PhotoUrls,
+		Status:        cm.Status,
+		CreatedAt:     cm.CreatedAt.Time.Format(time.RFC3339),
+	}
+
+	if cm.ExpectedResolutionDate.Valid {
+		resp.ExpectedResolutionDate = cm.ExpectedResolutionDate.Time.Format("2006-01-02")
+	}
+
+	if cm.ResolutionNotes.Valid {
+		resp.ResolutionNotes = cm.ResolutionNotes.String
+	}
+
+	if cm.ResolvedBy.Valid {
+		resp.ResolvedBy = cm.ResolvedBy.String()
+	}
+
+	if cm.ResolvedAt.Valid {
+		resp.ResolvedAt = cm.ResolvedAt.Time.Format(time.RFC3339)
+	}
+
+	return resp
+}
+
+func toAdminComplaintResponseFromList(cm db.ListComplaintsForAdminRow) AdminComplaintResponse {
+	resp := AdminComplaintResponse{
+		ID:            cm.ID.String(),
+		OrderID:       cm.OrderID.String(),
+		InvoiceNumber: cm.InvoiceNumber,
+		CustomerID:    cm.CustomerID.String(),
+		CustomerName:  cm.CustomerName,
+		CustomerPhone: cm.CustomerPhone.String,
+		ComplaintType: cm.ComplaintType,
+		Description:   cm.Description,
+		PhotoURLs:     cm.PhotoUrls,
+		Status:        cm.Status,
+		CreatedAt:     cm.CreatedAt.Time.Format(time.RFC3339),
+	}
+
+	if cm.ExpectedResolutionDate.Valid {
+		resp.ExpectedResolutionDate = cm.ExpectedResolutionDate.Time.Format("2006-01-02")
+	}
+
+	if cm.ResolutionNotes.Valid {
+		resp.ResolutionNotes = cm.ResolutionNotes.String
+	}
+
+	if cm.ResolvedBy.Valid {
+		resp.ResolvedBy = cm.ResolvedBy.String()
+	}
+
+	if cm.ResolvedAt.Valid {
+		resp.ResolvedAt = cm.ResolvedAt.Time.Format(time.RFC3339)
+	}
+
+	return resp
 }

@@ -229,3 +229,27 @@ type UpdateComplaintStatusRequest struct {
 	ResolutionNotes        string `json:"resolution_notes"`
 	ExpectedResolutionDate string `json:"expected_resolution_date"` // "YYYY-MM-DD"
 }
+
+type AdminComplaintResponse struct {
+	ID                     string `json:"id"`
+	OrderID                string `json:"order_id"`
+	InvoiceNumber          string `json:"invoice_number"`
+	CustomerID             string `json:"customer_id"`
+	CustomerName           string `json:"customer_name"`
+	CustomerPhone          string `json:"customer_phone"`
+	ComplaintType          string `json:"complaint_type"`
+	Description            string `json:"description"`
+	PhotoURLs              []string `json:"photo_urls"`
+	Status                 string `json:"status"`
+	CreatedAt              string `json:"created_at"`
+	ExpectedResolutionDate string `json:"expected_resolution_date,omitempty"`
+	ResolutionNotes        string `json:"resolution_notes,omitempty"`
+	ResolvedBy             string `json:"resolved_by,omitempty"`
+	ResolvedAt             string `json:"resolved_at,omitempty"`
+	Message                string `json:"message,omitempty"`
+}
+
+type AdminComplaintListResponse struct {
+	Data       []AdminComplaintResponse `json:"data"`
+	TotalCount int64                    `json:"total_count"`
+}
