@@ -7,6 +7,7 @@ import (
 	"laundry-app-with-golang/internal/apphelper"
 	db "laundry-app-with-golang/internal/db/generated"
 	"laundry-app-with-golang/internal/notification"
+	"laundry-app-with-golang/internal/sse"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -269,6 +270,11 @@ func (h *Handler) ProcessOrder(c *gin.Context) {
 		apperr.RespondInternalError(c, err)
 		return
 	}
+
+	sse.Default.Broadcast("outlet:"+updated.OutletID.String(), "station:new-order", gin.H{
+		"station": StatusWashing,
+		"orderID": updated.ID.String(),
+	})
 
 	_ = notification.NotifyCustomer(c.Request.Context(), h.Queries, updated.CustomerID,
 		"Detail pesanan telah diinput",
