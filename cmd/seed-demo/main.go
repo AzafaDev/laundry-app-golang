@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -65,6 +66,7 @@ func main() {
 	outlets := map[string]string{} // name -> id
 	for _, o := range []outletSeed{
 		{"Laundry Kilat - Curug", "Jl. Komp. Tataka Puri Blok J5 No.10, RT.3/RW.5, Kadu, Kec. Curug, Kabupaten Tangerang, Banten 15810", -6.229296504362473, 106.5674849964895, 8},
+		{"Laundry Kilat - BSD", "Jl. Pahlawan Seribu, BSD City, Kec. Serpong, Tangerang Selatan, Banten 15321", -6.301930450570917, 106.65282660000001, 8},
 	} {
 		id, err := ensureOutlet(ctx, pool, o)
 		if err != nil {
@@ -95,6 +97,11 @@ func main() {
 		{"Nanda Putri", "packing.sore@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "sore"},
 		{"Dedi Kurniawan", "driver@demo.laundry", "driver", "Laundry Kilat - Curug", "pagi"},
 		{"Eko Prasetyo", "driver.sore@demo.laundry", "driver", "Laundry Kilat - Curug", "sore"},
+		{"Rizky Ramadhan", "outlet.admin.bsd@demo.laundry", "outlet_admin", "Laundry Kilat - BSD", "pagi"},
+		{"Sri Wahyuni", "washing.bsd@demo.laundry", "washing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Agus Santoso", "ironing.bsd@demo.laundry", "ironing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Lestari Wulandari", "packing.bsd@demo.laundry", "packing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Hendra Gunawan", "driver.bsd@demo.laundry", "driver", "Laundry Kilat - BSD", "pagi"},
 	} {
 		var outletID *string
 		if e.outlet != "" {
@@ -116,6 +123,9 @@ func main() {
 			}
 			if err := ensureEmployeeShiftRecurring(ctx, pool, id, shiftID, outlets[e.outlet]); err != nil {
 				log.Fatalf("failed to seed shift for %q: %v", e.email, err)
+			}
+			if err := ensureAttendanceToday(ctx, pool, id, outlets[e.outlet]); err != nil {
+				log.Fatalf("failed to seed today's attendance for %q: %v", e.email, err)
 			}
 		}
 	}
@@ -201,9 +211,18 @@ func main() {
 	}
 
 	curugOutlet := outlets["Laundry Kilat - Curug"]
+	bsdOutlet := outlets["Laundry Kilat - BSD"]
 	curugAdmin := employeeIDs["outlet.admin@demo.laundry"]
 	rinaID := customerIDs["rina@demo.customer"]
 	rinaAddr := addressIDs["rina@demo.customer"]
+
+	// curugActors/bsdActors map a pipeline role to the employee id that
+	// plays it at that outlet, so order_status_histories/order_item_breakdowns
+	// attribute each transition to a real employee actually assigned to
+	// that order's outlet (rather than always crediting Curug's staff, which
+	// would be wrong once BSD orders exist).
+	curugActors := buildStationActors(employeeIDs, "")
+	bsdActors := buildStationActors(employeeIDs, ".bsd")
 
 	type demoOrder struct {
 		invoice    string
@@ -212,19 +231,22 @@ func main() {
 		address    string
 		status     string
 		totalPrice float64
+		actors     map[string]string
 	}
 	orders := []demoOrder{
-		{"DEMO-0001", rinaID, curugOutlet, rinaAddr["Rumah"], "waiting_pickup_driver", 35000},
-		{"DEMO-0002", rinaID, curugOutlet, rinaAddr["Rumah"], "laundry_to_outlet", 38000},
-		{"DEMO-0003", rinaID, curugOutlet, rinaAddr["Kantor"], "laundry_arrived_outlet", 41000},
-		{"DEMO-0004", rinaID, curugOutlet, rinaAddr["Kantor"], "washing", 42000},
-		{"DEMO-0005", rinaID, curugOutlet, rinaAddr["Rumah Orang Tua"], "ironing", 44000},
-		{"DEMO-0006", rinaID, curugOutlet, rinaAddr["Rumah"], "packing", 56000},
-		{"DEMO-0007", rinaID, curugOutlet, rinaAddr["Kantor"], "waiting_payment", 63000},
-		{"DEMO-0008", rinaID, curugOutlet, rinaAddr["Rumah"], "ready_for_delivery", 48000},
-		{"DEMO-0009", rinaID, curugOutlet, rinaAddr["Kantor"], "delivery_to_customer", 52000},
-		{"DEMO-0010", rinaID, curugOutlet, rinaAddr["Rumah"], "received_by_customer", 45000},
-		{"DEMO-0011", rinaID, curugOutlet, rinaAddr["Rumah"], "completed", 39000},
+		{"DEMO-0001", rinaID, curugOutlet, rinaAddr["Rumah"], "waiting_pickup_driver", 35000, curugActors},
+		{"DEMO-0002", rinaID, curugOutlet, rinaAddr["Rumah"], "laundry_to_outlet", 38000, curugActors},
+		{"DEMO-0003", rinaID, curugOutlet, rinaAddr["Kantor"], "laundry_arrived_outlet", 41000, curugActors},
+		{"DEMO-0004", rinaID, curugOutlet, rinaAddr["Kantor"], "washing", 42000, curugActors},
+		{"DEMO-0005", rinaID, curugOutlet, rinaAddr["Rumah Orang Tua"], "ironing", 44000, curugActors},
+		{"DEMO-0006", rinaID, curugOutlet, rinaAddr["Rumah"], "packing", 56000, curugActors},
+		{"DEMO-0007", rinaID, curugOutlet, rinaAddr["Kantor"], "waiting_payment", 63000, curugActors},
+		{"DEMO-0008", rinaID, curugOutlet, rinaAddr["Rumah"], "ready_for_delivery", 48000, curugActors},
+		{"DEMO-0009", rinaID, curugOutlet, rinaAddr["Kantor"], "delivery_to_customer", 52000, curugActors},
+		{"DEMO-0010", rinaID, curugOutlet, rinaAddr["Rumah"], "received_by_customer", 45000, curugActors},
+		{"DEMO-0011", rinaID, curugOutlet, rinaAddr["Rumah"], "completed", 39000, curugActors},
+		{"DEMO-BSD-0001", rinaID, bsdOutlet, rinaAddr["Rumah"], "laundry_arrived_outlet", 40000, bsdActors},
+		{"DEMO-BSD-0002", rinaID, bsdOutlet, rinaAddr["Kantor"], "washing", 46000, bsdActors},
 	}
 
 	for _, o := range orders {
@@ -232,16 +254,68 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to seed order %q: %v", o.invoice, err)
 		}
-		if !created {
-			log.Printf("order already exists, skipped: %s", o.invoice)
-			continue
-		}
-		log.Printf("order seeded: %s (%s)", o.invoice, o.status)
+		if created {
+			log.Printf("order seeded: %s (%s)", o.invoice, o.status)
 
-		if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, curugAdmin, o.status); err != nil {
-			log.Fatalf("failed to seed contents for order %q: %v", o.invoice, err)
+			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, o.actors["outlet_admin"], o.status); err != nil {
+				log.Fatalf("failed to seed contents for order %q: %v", o.invoice, err)
+			}
+		} else {
+			log.Printf("order already exists, skipped: %s", o.invoice)
+		}
+
+		// Independent of `created`: earlier runs of this script (before
+		// status-history seeding existed) already created these orders
+		// without any history rows, so this must backfill pre-existing
+		// orders too, not just freshly-created ones.
+		if err := seedOrderStatusHistory(ctx, pool, orderID, rinaID, o.actors, o.status, nil); err != nil {
+			log.Fatalf("failed to seed status history for order %q: %v", o.invoice, err)
 		}
 	}
+
+	// One bypass request per outcome (pending/approved/rejected) so the
+	// bypass review UI/endpoints have data to test against — attached to
+	// the three orders already sitting at a worker station.
+	washingOrderID, err := getOrderIDByInvoice(ctx, pool, "DEMO-0004")
+	if err != nil {
+		log.Fatalf("failed to look up DEMO-0004 for bypass seeding: %v", err)
+	}
+	ironingOrderID, err := getOrderIDByInvoice(ctx, pool, "DEMO-0005")
+	if err != nil {
+		log.Fatalf("failed to look up DEMO-0005 for bypass seeding: %v", err)
+	}
+	packingOrderID, err := getOrderIDByInvoice(ctx, pool, "DEMO-0006")
+	if err != nil {
+		log.Fatalf("failed to look up DEMO-0006 for bypass seeding: %v", err)
+	}
+
+	if err := ensureBypassRequest(ctx, pool, washingOrderID, "washing", employeeIDs["washing@demo.laundry"], clothingTypeID, "pending", "", ""); err != nil {
+		log.Fatalf("failed to seed pending bypass request: %v", err)
+	}
+	if err := ensureBypassRequest(ctx, pool, ironingOrderID, "ironing", employeeIDs["ironing@demo.laundry"], clothingTypeID, "approved", curugAdmin, "Disetujui, selisih wajar"); err != nil {
+		log.Fatalf("failed to seed approved bypass request: %v", err)
+	}
+	if err := ensureBypassRequest(ctx, pool, packingOrderID, "packing", employeeIDs["packing@demo.laundry"], clothingTypeID, "rejected", curugAdmin, "Ditolak, selisih terlalu besar"); err != nil {
+		log.Fatalf("failed to seed rejected bypass request: %v", err)
+	}
+	log.Println("bypass requests ready")
+
+	// A couple of task notifications for the pagi driver so the driver
+	// notifications UI/endpoint has something to show.
+	if err := ensureEmployeeNotifications(ctx, pool, employeeIDs["driver@demo.laundry"]); err != nil {
+		log.Fatalf("failed to seed driver notifications: %v", err)
+	}
+	log.Println("driver notifications ready")
+
+	// Backfill historical completed orders so sales/employee-performance
+	// report endpoints have multi-day data instead of only today's.
+	if err := seedHistoricalReportData(ctx, pool, "HIST-CRG", curugOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, curugActors, historicalReportDays); err != nil {
+		log.Fatalf("failed to seed historical report data for Curug: %v", err)
+	}
+	if err := seedHistoricalReportData(ctx, pool, "HIST-BSD", bsdOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, bsdActors, historicalReportDays); err != nil {
+		log.Fatalf("failed to seed historical report data for BSD: %v", err)
+	}
+	log.Printf("historical report data ready (%d days x 2 outlets)", historicalReportDays)
 
 	log.Println("demo data seeding complete")
 }
@@ -537,6 +611,291 @@ func seedPayment(ctx context.Context, pool *pgxpool.Pool, orderID, status string
 	`, orderID, status, paidAt)
 	if err != nil {
 		return fmt.Errorf("payments: %w", err)
+	}
+	return nil
+}
+
+// ensureAttendanceToday checks the employee in for today (no checkout), so
+// AssertShiftEligibility (which every worker-station endpoint calls) finds
+// a valid attendance row instead of rejecting with "not_checked_in" during
+// manual testing.
+func ensureAttendanceToday(ctx context.Context, pool *pgxpool.Pool, employeeID, outletID string) error {
+	_, err := pool.Exec(ctx, `
+		INSERT INTO attendances (employee_id, outlet_id, date, check_in_time, is_late, late_minutes, status)
+		VALUES ($1, $2, CURRENT_DATE, now(), FALSE, 0, 'on_time')
+		ON CONFLICT (employee_id, date) DO NOTHING
+	`, employeeID, outletID)
+	if err != nil {
+		return fmt.Errorf("attendances: %w", err)
+	}
+	return nil
+}
+
+// orderStatusStep describes one order_status_histories row in the pipeline
+// a demo order walks through, in order. actorRole is a key into an actors
+// map (see buildStationActors) for "employee"-type steps; unused for
+// "customer"/"system" steps.
+type orderStatusStep struct {
+	from, to      string
+	changedByType string
+	actorRole     string
+	note          string
+}
+
+var orderStatusPipeline = []orderStatusStep{
+	{"", "waiting_pickup_driver", "customer", "", ""},
+	{"waiting_pickup_driver", "laundry_to_outlet", "employee", "driver", ""},
+	{"laundry_to_outlet", "laundry_arrived_outlet", "employee", "driver", ""},
+	{"laundry_arrived_outlet", "washing", "employee", "outlet_admin", ""},
+	{"washing", "ironing", "employee", "washing_worker", ""},
+	{"ironing", "packing", "employee", "ironing_worker", ""},
+	{"packing", "waiting_payment", "employee", "packing_worker", ""},
+	{"waiting_payment", "ready_for_delivery", "system", "", "payment confirmed"},
+	{"ready_for_delivery", "delivery_to_customer", "employee", "driver", ""},
+	{"delivery_to_customer", "received_by_customer", "employee", "driver", ""},
+	{"received_by_customer", "completed", "system", "", "Pesanan dikonfirmasi otomatis setelah 2x24 jam."},
+}
+
+// buildStationActors maps each pipeline role to the id of the employee
+// playing that role at one outlet, keyed by the email suffix that
+// distinguishes that outlet's accounts (e.g. "" for Curug's pagi accounts,
+// ".bsd" for BSD's). Always resolves to the pagi account for a role, since
+// history/content attribution doesn't need shift-level precision.
+func buildStationActors(employeeIDs map[string]string, suffix string) map[string]string {
+	return map[string]string{
+		"driver":         employeeIDs["driver"+suffix+"@demo.laundry"],
+		"outlet_admin":   employeeIDs["outlet.admin"+suffix+"@demo.laundry"],
+		"washing_worker": employeeIDs["washing"+suffix+"@demo.laundry"],
+		"ironing_worker": employeeIDs["ironing"+suffix+"@demo.laundry"],
+		"packing_worker": employeeIDs["packing"+suffix+"@demo.laundry"],
+	}
+}
+
+// seedOrderStatusHistory replays orderStatusPipeline up to (and including)
+// the transition that landed the order on finalStatus, so GetStationHistory
+// and any order-timeline UI have realistic data instead of an empty list.
+// If startAt is non-nil, each row's created_at is stamped explicitly,
+// spaced 40 minutes apart from startAt — used by historical report-data
+// seeding, where rows must land on their order's actual historical day
+// (the WorkerPerformanceReport/SalesReportByPeriod queries filter/group by
+// these timestamps) instead of all clustering at "now".
+func seedOrderStatusHistory(ctx context.Context, pool *pgxpool.Pool, orderID, customerID string, actors map[string]string, finalStatus string, startAt *time.Time) error {
+	var existing string
+	err := pool.QueryRow(ctx, "SELECT id FROM order_status_histories WHERE order_id = $1 LIMIT 1", orderID).Scan(&existing)
+	if err == nil {
+		return nil
+	}
+	if err != pgx.ErrNoRows {
+		return fmt.Errorf("order_status_histories lookup: %w", err)
+	}
+
+	t := startAt
+	for _, step := range orderStatusPipeline {
+		var changedByID *string
+		switch step.changedByType {
+		case "customer":
+			changedByID = &customerID
+		case "employee":
+			id := actors[step.actorRole]
+			changedByID = &id
+		}
+
+		var oldStatus *string
+		if step.from != "" {
+			oldStatus = &step.from
+		}
+		var note *string
+		if step.note != "" {
+			note = &step.note
+		}
+
+		if t == nil {
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO order_status_histories (order_id, old_status, new_status, changed_by_type, changed_by_id, note)
+				VALUES ($1, $2, $3, $4, $5, $6)
+			`, orderID, oldStatus, step.to, step.changedByType, changedByID, note); err != nil {
+				return fmt.Errorf("order_status_histories(%s->%s): %w", step.from, step.to, err)
+			}
+		} else {
+			next := t.Add(40 * time.Minute)
+			t = &next
+			if _, err := pool.Exec(ctx, `
+				INSERT INTO order_status_histories (order_id, old_status, new_status, changed_by_type, changed_by_id, note, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+			`, orderID, oldStatus, step.to, step.changedByType, changedByID, note, *t); err != nil {
+				return fmt.Errorf("order_status_histories(%s->%s): %w", step.from, step.to, err)
+			}
+		}
+
+		if step.to == finalStatus {
+			break
+		}
+	}
+	return nil
+}
+
+func getOrderIDByInvoice(ctx context.Context, pool *pgxpool.Pool, invoiceNumber string) (string, error) {
+	var id string
+	err := pool.QueryRow(ctx, "SELECT id FROM orders WHERE invoice_number = $1", invoiceNumber).Scan(&id)
+	return id, err
+}
+
+// historicalReportDays controls how far back synthetic completed orders are
+// generated for report/dashboard testing (SalesReportByPeriod groups by
+// orders.updated_at, WorkerPerformanceReport filters order_status_histories
+// by created_at — both are empty without this).
+const historicalReportDays = 14
+
+// ensureHistoricalOrder inserts a `completed` order dated to a specific
+// historical day (pickup_date/created_at/updated_at all backdated), unlike
+// ensureOrder which always uses CURRENT_DATE/now(). Idempotent on
+// invoice_number like ensureOrder.
+func ensureHistoricalOrder(ctx context.Context, pool *pgxpool.Pool, invoiceNumber, customerID, outletID, addressID string, totalPrice float64, day time.Time) (id string, created bool, err error) {
+	dayDate := day.Format("2006-01-02")
+	createdAt := time.Date(day.Year(), day.Month(), day.Day(), 8, 0, 0, 0, day.Location())
+	updatedAt := createdAt.Add(7 * time.Hour)
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO orders (invoice_number, customer_id, outlet_id, pickup_address_id, status, pickup_date, delivery_fee, total_price, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, 'completed', $5, 0, $6, $7, $8)
+		ON CONFLICT (invoice_number) DO NOTHING
+		RETURNING id
+	`, invoiceNumber, customerID, outletID, addressID, dayDate, totalPrice, createdAt, updatedAt).Scan(&id)
+	if err == nil {
+		return id, true, nil
+	}
+	if err != pgx.ErrNoRows {
+		return "", false, err
+	}
+
+	err = pool.QueryRow(ctx, "SELECT id FROM orders WHERE invoice_number = $1", invoiceNumber).Scan(&id)
+	return id, false, err
+}
+
+// seedHistoricalReportData backfills `days` worth of completed orders (1-2
+// per day) for one outlet, each with a full order_items/breakdown, a full
+// order_status_histories chain stamped to that historical day, and the
+// driver_task/payment rows a completed order implies — so sales and
+// employee-performance report endpoints have non-empty, multi-day data to
+// chart instead of only "today". driver_tasks/payments are still stamped
+// "now" via seedOrderContents (not backdated): neither report query reads
+// those tables, only orders.updated_at and order_status_histories.created_at,
+// so this is a deliberate scope cut, not an oversight.
+func seedHistoricalReportData(ctx context.Context, pool *pgxpool.Pool, invoicePrefix, outletID, customerID, addressID, clothingTypeID, laundryItemID string, actors map[string]string, days int) error {
+	for offset := days; offset >= 1; offset-- {
+		day := time.Now().AddDate(0, 0, -offset)
+		numOrders := 1
+		if offset%2 == 0 {
+			numOrders = 2
+		}
+
+		for i := 0; i < numOrders; i++ {
+			invoice := fmt.Sprintf("%s-%s-%d", invoicePrefix, day.Format("20060102"), i+1)
+			totalPrice := 30000.0 + float64(offset%5)*4000 + float64(i)*6000
+
+			orderID, created, err := ensureHistoricalOrder(ctx, pool, invoice, customerID, outletID, addressID, totalPrice, day)
+			if err != nil {
+				return fmt.Errorf("order %s: %w", invoice, err)
+			}
+			if !created {
+				continue
+			}
+
+			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, actors["outlet_admin"], "completed"); err != nil {
+				return fmt.Errorf("contents %s: %w", invoice, err)
+			}
+
+			dayStart := time.Date(day.Year(), day.Month(), day.Day(), 8, 0, 0, 0, day.Location())
+			if err := seedOrderStatusHistory(ctx, pool, orderID, customerID, actors, "completed", &dayStart); err != nil {
+				return fmt.Errorf("history %s: %w", invoice, err)
+			}
+		}
+	}
+	return nil
+}
+
+// normalizedItemSeed mirrors internal/order.NormalizedItem's JSON shape —
+// duplicated here rather than imported since cmd/seed-demo talks to the
+// database directly and doesn't depend on the order package.
+type normalizedItemSeed struct {
+	ItemType string `json:"item_type"`
+	ItemID   string `json:"item_id"`
+	Name     string `json:"name"`
+	Quantity int32  `json:"quantity"`
+}
+
+// ensureBypassRequest seeds one bypass_requests row with a manufactured
+// 1-item discrepancy (expected 5, actual 4) against the order's clothing
+// breakdown, in the given final status. Idempotent: skipped if a bypass
+// request already exists for this order+station.
+func ensureBypassRequest(ctx context.Context, pool *pgxpool.Pool, orderID, station, requestedBy, clothingTypeID, status, reviewedBy, adminNotes string) error {
+	var existing string
+	err := pool.QueryRow(ctx, "SELECT id FROM bypass_requests WHERE order_id = $1 AND station = $2", orderID, station).Scan(&existing)
+	if err == nil {
+		return nil
+	}
+	if err != pgx.ErrNoRows {
+		return fmt.Errorf("bypass_requests lookup: %w", err)
+	}
+
+	expectedJSON, err := json.Marshal([]normalizedItemSeed{{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 5}})
+	if err != nil {
+		return fmt.Errorf("marshal expected_items: %w", err)
+	}
+	actualJSON, err := json.Marshal([]normalizedItemSeed{{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 4}})
+	if err != nil {
+		return fmt.Errorf("marshal actual_items: %w", err)
+	}
+
+	var reviewedByArg *string
+	if reviewedBy != "" {
+		reviewedByArg = &reviewedBy
+	}
+	var adminNotesArg *string
+	if adminNotes != "" {
+		adminNotesArg = &adminNotes
+	}
+	var resolvedAt any
+	if status != "pending" {
+		resolvedAt = time.Now()
+	}
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO bypass_requests (
+			order_id, station, requested_by, expected_items, actual_items,
+			discrepancy_description, attempt_number, status, reviewed_by, admin_notes, resolved_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $10)
+	`, orderID, station, requestedBy, expectedJSON, actualJSON,
+		"Selisih 1 kemeja saat dihitung ulang", status, reviewedByArg, adminNotesArg, resolvedAt); err != nil {
+		return fmt.Errorf("bypass_requests: %w", err)
+	}
+	return nil
+}
+
+// ensureEmployeeNotifications seeds a couple of task notifications for the
+// given employee (used for the demo driver) so the notifications UI/endpoint
+// has something to list.
+func ensureEmployeeNotifications(ctx context.Context, pool *pgxpool.Pool, employeeID string) error {
+	notifications := []struct{ title, body, notifType string }{
+		{"Tugas Pickup Baru", "Ada order baru menunggu dijemput di area Curug.", "task_assigned"},
+		{"Tugas Pengiriman Selesai", "Pengiriman untuk pesanan DEMO-0009 berhasil diselesaikan.", "order_update"},
+	}
+	for _, n := range notifications {
+		var existing string
+		err := pool.QueryRow(ctx, "SELECT id FROM employee_notifications WHERE employee_id = $1 AND title = $2", employeeID, n.title).Scan(&existing)
+		if err == nil {
+			continue
+		}
+		if err != pgx.ErrNoRows {
+			return fmt.Errorf("employee_notifications lookup: %w", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO employee_notifications (employee_id, title, body, type)
+			VALUES ($1, $2, $3, $4)
+		`, employeeID, n.title, n.body, n.notifType); err != nil {
+			return fmt.Errorf("employee_notifications: %w", err)
+		}
 	}
 	return nil
 }

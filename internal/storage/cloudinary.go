@@ -55,3 +55,18 @@ func (c *Client) UploadComplaintPhoto(ctx context.Context, file multipart.File, 
 
 	return result.SecureURL, nil
 }
+
+func (c *Client) UploadBypassPhoto(ctx context.Context, file multipart.File, orderID string) (string, error) {
+	result, err := c.cld.Upload.Upload(ctx, file, uploader.UploadParams{
+		PublicID: fmt.Sprintf("%s-%s", orderID, uuid.NewString()),
+		Folder:   "orders/bypass",
+	})
+	if err != nil {
+		return "", fmt.Errorf("error in uploading bypass photo: %w", err)
+	}
+	if result.Error.Message != "" {
+		return "", fmt.Errorf("error in uploading bypass photo: %s", result.Error.Message)
+	}
+
+	return result.SecureURL, nil
+}

@@ -80,9 +80,10 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		return
 	}
 
+	payloadJSON := c.PostForm("payload")
 	var req CreateBypassRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := json.Unmarshal([]byte(payloadJSON), &req); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_payload")
 		return
 	}
 
@@ -129,6 +130,40 @@ func (h *Handler) CreateBypassRequest(c *gin.Context) {
 		apperr.RespondError(c, http.StatusBadRequest, "bypass_limit_reached")
 		return
 	}
+
+	photoURLs := []string{}
+	form, err := c.MultipartForm()
+	if err == nil && form != nil {
+		fileHeaders := form.File["photos"]
+		if len(fileHeaders) > maxBypassPhotos {
+			apperr.RespondError(c, http.StatusBadRequest, "too_many_bypass_photos")
+			return
+		}
+		for _, fh := range fileHeaders {
+			if fh.Size > apphelper.MaxImageUploadSize {
+				apperr.RespondError(c, http.StatusBadRequest, "bypass_photo_too_large")
+				return
+			}
+			contentType := fh.Header.Get("Content-Type")
+			if !apphelper.AllowedImageContentTypes[contentType] {
+				apperr.RespondError(c, http.StatusBadRequest, "bypass_photo_invalid_type")
+				return
+			}
+			file, err := fh.Open()
+			if err != nil {
+				apperr.RespondInternalError(c, err)
+				return
+			}
+			url, err := h.StorageClient.UploadBypassPhoto(c.Request.Context(), file, req.OrderID)
+			file.Close()
+			if err != nil {
+				apperr.RespondInternalError(c, err)
+				return
+			}
+			photoURLs = append(photoURLs, url)
+		}
+	}
+	req.PhotoEvidence = photoURLs
 
 	expectedBreakdown, expectedSatuan, err := h.expectedItems(c.Request.Context(), orderID)
 	if err != nil {
