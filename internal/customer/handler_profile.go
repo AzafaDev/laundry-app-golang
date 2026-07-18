@@ -14,11 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (h *Handler) Me(c *gin.Context) {
-	customerID, _ := c.Get("customer_id")
-	c.JSON(http.StatusOK, gin.H{"customer_id": customerID})
-}
-
 func (h *Handler) Profile(c *gin.Context) {
 	customerUUID, _, err := h.currentCustomerID(c)
 	if err != nil {

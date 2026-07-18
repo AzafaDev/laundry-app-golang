@@ -65,7 +65,6 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.GET("/api/v1/events", sseHandler.Stream)
 
-	router.GET("/api/v1/customer/me", authMiddleware, customerHandler.Me)
 	router.GET("/api/v1/customer/profile", authMiddleware, customerHandler.Profile)
 
 	router.POST("/api/v1/customer/auth/register", authRateLimit, customerHandler.Register)
