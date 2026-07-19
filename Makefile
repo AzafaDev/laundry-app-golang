@@ -1,7 +1,7 @@
 include .env
 export
 
-.PHONY: run build migrate-up migrate-down seed-admin seed-demo docker-up docker-down dev
+.PHONY: run build migrate-up migrate-down clean-db seed-admin seed-demo docker-up docker-down dev
 
 run:
 	go run ./cmd/api
@@ -11,6 +11,9 @@ migrate-up:
 	migrate -path migrations -database "$(DATABASE_URL)" up
 migrate-down:
 	migrate -path migrations -database "$(DATABASE_URL)" down 1
+clean-db:
+	migrate -path migrations -database "$(DATABASE_URL)" down -all
+	migrate -path migrations -database "$(DATABASE_URL)" up
 seed-admin:
 	go run ./cmd/seed
 seed-demo:
