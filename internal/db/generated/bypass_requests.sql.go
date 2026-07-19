@@ -47,6 +47,20 @@ func (q *Queries) CountNonPendingBypassRequests(ctx context.Context, arg CountNo
 	return count, err
 }
 
+const countPendingBypassRequests = `-- name: CountPendingBypassRequests :one
+SELECT count(*) FROM bypass_requests br
+JOIN orders o ON o.id = br.order_id
+WHERE br.status = 'pending'
+  AND ($1::uuid IS NULL OR o.outlet_id = $1)
+`
+
+func (q *Queries) CountPendingBypassRequests(ctx context.Context, outletID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPendingBypassRequests, outletID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBypassRequest = `-- name: CreateBypassRequest :one
 INSERT INTO bypass_requests (
     order_id, station, requested_by, expected_items, actual_items,

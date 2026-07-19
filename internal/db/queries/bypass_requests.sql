@@ -48,3 +48,9 @@ SELECT status FROM bypass_requests
 WHERE order_id = $1
 ORDER BY created_at DESC
 LIMIT 1;
+
+-- name: CountPendingBypassRequests :one
+SELECT count(*) FROM bypass_requests br
+JOIN orders o ON o.id = br.order_id
+WHERE br.status = 'pending'
+  AND (sqlc.narg('outlet_id')::uuid IS NULL OR o.outlet_id = sqlc.narg('outlet_id'));

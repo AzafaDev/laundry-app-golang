@@ -207,6 +207,8 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/admin/complaints/:id", employeeAuthMiddleware, adminComplaintRoles, orderHandler.GetComplaintByID)
 	router.PATCH("/api/v1/employee/admin/complaints/:id/status", employeeAuthMiddleware, csrfMiddleware, adminComplaintRoles, orderHandler.UpdateComplaintStatus)
 
+	router.GET("/api/v1/employee/admin/dashboard/stats", employeeAuthMiddleware, adminComplaintRoles, orderHandler.GetDashboardStats)
+
 	workerRoles := middleware.RequireRole("washing_worker", "ironing_worker", "packing_worker")
 	router.GET("/api/v1/employee/worker/station/:station/orders", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrders)
 	router.GET("/api/v1/employee/worker/station/:station/orders/:orderId/items", employeeAuthMiddleware, workerRoles, orderHandler.GetStationOrderItems)

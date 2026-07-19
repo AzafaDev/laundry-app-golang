@@ -254,3 +254,10 @@ type AdminComplaintListResponse struct {
 	Data       []AdminComplaintResponse `json:"data"`
 	TotalCount int64                    `json:"total_count"`
 }
+
+type DashboardStatsResponse struct {
+	NeedsProcessing int64 `json:"needs_processing"`
+	AwaitingPayment int64 `json:"awaiting_payment"`
+	BypassPending   int64 `json:"bypass_pending"`
+	ComplaintsOpen  int64 `json:"complaints_open"`
+}

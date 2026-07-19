@@ -64,6 +64,20 @@ func (q *Queries) CountComplaintsByStatus(ctx context.Context, outletID pgtype.U
 	return items, nil
 }
 
+const countOpenComplaints = `-- name: CountOpenComplaints :one
+SELECT count(*) FROM complaints c
+JOIN orders o ON o.id = c.order_id
+WHERE c.status = 'open'
+  AND ($1::uuid IS NULL OR o.outlet_id = $1)
+`
+
+func (q *Queries) CountOpenComplaints(ctx context.Context, outletID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenComplaints, outletID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createComplaint = `-- name: CreateComplaint :one
 INSERT INTO complaints (order_id, customer_id, complaint_type, description, photo_urls)
 VALUES ($1, $2, $3, $4, $5)

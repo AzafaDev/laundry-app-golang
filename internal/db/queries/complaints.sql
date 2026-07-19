@@ -69,3 +69,9 @@ JOIN orders o ON o.id = c.order_id
 JOIN customers cu ON cu.id = c.customer_id
 LEFT JOIN employees e ON e.id = c.resolved_by
 WHERE c.id = $1;
+
+-- name: CountOpenComplaints :one
+SELECT count(*) FROM complaints c
+JOIN orders o ON o.id = c.order_id
+WHERE c.status = 'open'
+  AND (sqlc.narg('outlet_id')::uuid IS NULL OR o.outlet_id = sqlc.narg('outlet_id'));

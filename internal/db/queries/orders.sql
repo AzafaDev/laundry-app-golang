@@ -109,6 +109,13 @@ SET status = $1, auto_confirm_at = COALESCE($2, auto_confirm_at), updated_at = n
 WHERE id = $3 AND status = $4
 RETURNING *;
 
+-- name: CountDashboardOrderStats :one
+SELECT
+  COUNT(*) FILTER (WHERE status = ANY('{washing,ironing,packing,laundry_arrived_outlet}'::text[])) AS needs_processing,
+  COUNT(*) FILTER (WHERE status = 'waiting_payment') AS awaiting_payment
+FROM orders
+WHERE sqlc.narg('outlet_id')::uuid IS NULL OR outlet_id = sqlc.narg('outlet_id');
+
 -- name: SalesReportByPeriod :many
 SELECT date_trunc(sqlc.arg('group_by')::text, updated_at)::timestamptz AS period,
        COALESCE(SUM(total_price), 0)::numeric AS income,

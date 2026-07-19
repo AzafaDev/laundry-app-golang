@@ -381,3 +381,38 @@ func toAdminComplaintResponseFromList(cm db.ListComplaintsForAdminRow) AdminComp
 
 	return resp
 }
+
+func (h *Handler) GetDashboardStats(c *gin.Context) {
+	outletID, scoped := complaintListFilter(c)
+	outletFilter := pgtype.UUID{Valid: false}
+	if scoped {
+		outletFilter = outletID
+	}
+
+	orderStats, err := h.Queries.CountDashboardOrderStats(c.Request.Context(), outletFilter)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	openComplaints, err := h.Queries.CountOpenComplaints(c.Request.Context(), outletFilter)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	bypassPending, err := h.Queries.CountPendingBypassRequests(c.Request.Context(), outletFilter)
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	resp := DashboardStatsResponse{
+		NeedsProcessing: orderStats.NeedsProcessing,
+		AwaitingPayment: orderStats.AwaitingPayment,
+		ComplaintsOpen:  openComplaints,
+		BypassPending:   bypassPending,
+	}
+
+	c.JSON(http.StatusOK, resp)
+}

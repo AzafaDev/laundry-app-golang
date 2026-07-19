@@ -107,6 +107,26 @@ func (q *Queries) CountActiveOrdersByCustomer(ctx context.Context, customerID pg
 	return count, err
 }
 
+const countDashboardOrderStats = `-- name: CountDashboardOrderStats :one
+SELECT
+  COUNT(*) FILTER (WHERE status = ANY('{washing,ironing,packing,laundry_arrived_outlet}'::text[])) AS needs_processing,
+  COUNT(*) FILTER (WHERE status = 'waiting_payment') AS awaiting_payment
+FROM orders
+WHERE $1::uuid IS NULL OR outlet_id = $1
+`
+
+type CountDashboardOrderStatsRow struct {
+	NeedsProcessing int64 `json:"needs_processing"`
+	AwaitingPayment int64 `json:"awaiting_payment"`
+}
+
+func (q *Queries) CountDashboardOrderStats(ctx context.Context, outletID pgtype.UUID) (CountDashboardOrderStatsRow, error) {
+	row := q.db.QueryRow(ctx, countDashboardOrderStats, outletID)
+	var i CountDashboardOrderStatsRow
+	err := row.Scan(&i.NeedsProcessing, &i.AwaitingPayment)
+	return i, err
+}
+
 const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE customer_id = $1
