@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"laundry-app-with-golang/internal/auth"
 	"laundry-app-with-golang/internal/config"
 	"laundry-app-with-golang/internal/database"
+	"laundry-app-with-golang/internal/shift"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -124,10 +126,19 @@ func main() {
 			if err := ensureEmployeeShiftRecurring(ctx, pool, id, shiftID, outlets[e.outlet]); err != nil {
 				log.Fatalf("failed to seed shift for %q: %v", e.email, err)
 			}
-			if err := ensureAttendanceToday(ctx, pool, id, outlets[e.outlet]); err != nil {
-				log.Fatalf("failed to seed today's attendance for %q: %v", e.email, err)
+			// Skip attendance for washing.sore employee to demonstrate absent case in report
+			if e.email != "washing.sore@demo.laundry" {
+				if err := ensureAttendanceToday(ctx, pool, id, outlets[e.outlet]); err != nil {
+					log.Fatalf("failed to seed today's attendance for %q: %v", e.email, err)
+				}
 			}
 		}
+	}
+
+	// Seed an 'absent' attendance for Rian Saputra (washing.sore) so reviewers see
+	// at least one "not present" case in today's attendance report
+	if err := seedTodayAbsent(ctx, pool, employeeIDs["washing.sore@demo.laundry"], outlets["Laundry Kilat - Curug"]); err != nil {
+		log.Fatalf("failed to seed today's absent attendance: %v", err)
 	}
 
 	provinceID, cityID, districtID, err := lookupWilayahIDs(ctx, pool)
@@ -241,6 +252,8 @@ func main() {
 		{"DEMO-0005", rinaID, curugOutlet, rinaAddr["Rumah Orang Tua"], "ironing", 44000, curugActors},
 		{"DEMO-0006", rinaID, curugOutlet, rinaAddr["Rumah"], "packing", 56000, curugActors},
 		{"DEMO-0007", rinaID, curugOutlet, rinaAddr["Kantor"], "waiting_payment", 63000, curugActors},
+		{"DEMO-0007a", rinaID, curugOutlet, rinaAddr["Rumah"], "waiting_payment", 71000, curugActors},
+		{"DEMO-0007b", rinaID, curugOutlet, rinaAddr["Kantor"], "waiting_payment", 58000, curugActors},
 		{"DEMO-0008", rinaID, curugOutlet, rinaAddr["Rumah"], "ready_for_delivery", 48000, curugActors},
 		{"DEMO-0009", rinaID, curugOutlet, rinaAddr["Kantor"], "delivery_to_customer", 52000, curugActors},
 		{"DEMO-0010", rinaID, curugOutlet, rinaAddr["Rumah"], "received_by_customer", 45000, curugActors},
@@ -309,13 +322,20 @@ func main() {
 
 	// Backfill historical completed orders so sales/employee-performance
 	// report endpoints have multi-day data instead of only today's.
-	if err := seedHistoricalReportData(ctx, pool, "HIST-CRG", curugOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, curugActors, historicalReportDays); err != nil {
+	rng := rand.New(rand.NewSource(42)) // fixed seed for reproducible randomization
+	if err := seedHistoricalReportData(ctx, pool, "HIST-CRG", curugOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, curugActors, historicalReportDays, rng); err != nil {
 		log.Fatalf("failed to seed historical report data for Curug: %v", err)
 	}
-	if err := seedHistoricalReportData(ctx, pool, "HIST-BSD", bsdOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, bsdActors, historicalReportDays); err != nil {
+	if err := seedHistoricalReportData(ctx, pool, "HIST-BSD", bsdOutlet, rinaID, rinaAddr["Rumah"], clothingTypeID, laundryItemID, bsdActors, historicalReportDays, rng); err != nil {
 		log.Fatalf("failed to seed historical report data for BSD: %v", err)
 	}
 	log.Printf("historical report data ready (%d days x 2 outlets)", historicalReportDays)
+
+	// Seed historical attendance data (1.5 years back, excluding today which is already seeded)
+	if err := seedHistoricalAttendances(ctx, pool, rng); err != nil {
+		log.Fatalf("failed to seed historical attendances: %v", err)
+	}
+	log.Println("historical attendance data ready")
 
 	log.Println("demo data seeding complete")
 }
@@ -631,6 +651,21 @@ func ensureAttendanceToday(ctx context.Context, pool *pgxpool.Pool, employeeID, 
 	return nil
 }
 
+// seedTodayAbsent creates an 'absent' attendance record for today for a specific employee
+// who was skipped in the ensureAttendanceToday loop. This ensures reviewers see at least
+// one "not present" case in the attendance report.
+func seedTodayAbsent(ctx context.Context, pool *pgxpool.Pool, employeeID, outletID string) error {
+	_, err := pool.Exec(ctx, `
+		INSERT INTO attendances (employee_id, outlet_id, date, check_in_time, is_late, late_minutes, status)
+		VALUES ($1, $2, CURRENT_DATE, NULL, FALSE, 0, 'absent')
+		ON CONFLICT (employee_id, date) DO NOTHING
+	`, employeeID, outletID)
+	if err != nil {
+		return fmt.Errorf("seed today absent: %w", err)
+	}
+	return nil
+}
+
 // orderStatusStep describes one order_status_histories row in the pipeline
 // a demo order walks through, in order. actorRole is a key into an actors
 // map (see buildStationActors) for "employee"-type steps; unused for
@@ -744,7 +779,7 @@ func getOrderIDByInvoice(ctx context.Context, pool *pgxpool.Pool, invoiceNumber 
 // generated for report/dashboard testing (SalesReportByPeriod groups by
 // orders.updated_at, WorkerPerformanceReport filters order_status_histories
 // by created_at — both are empty without this).
-const historicalReportDays = 14
+const historicalReportDays = 90
 
 // ensureHistoricalOrder inserts a `completed` order dated to a specific
 // historical day (pickup_date/created_at/updated_at all backdated), unlike
@@ -772,7 +807,7 @@ func ensureHistoricalOrder(ctx context.Context, pool *pgxpool.Pool, invoiceNumbe
 	return id, false, err
 }
 
-// seedHistoricalReportData backfills `days` worth of completed orders (1-2
+// seedHistoricalReportData backfills `days` worth of completed orders (1-4
 // per day) for one outlet, each with a full order_items/breakdown, a full
 // order_status_histories chain stamped to that historical day, and the
 // driver_task/payment rows a completed order implies — so sales and
@@ -781,17 +816,15 @@ func ensureHistoricalOrder(ctx context.Context, pool *pgxpool.Pool, invoiceNumbe
 // "now" via seedOrderContents (not backdated): neither report query reads
 // those tables, only orders.updated_at and order_status_histories.created_at,
 // so this is a deliberate scope cut, not an oversight.
-func seedHistoricalReportData(ctx context.Context, pool *pgxpool.Pool, invoicePrefix, outletID, customerID, addressID, clothingTypeID, laundryItemID string, actors map[string]string, days int) error {
+func seedHistoricalReportData(ctx context.Context, pool *pgxpool.Pool, invoicePrefix, outletID, customerID, addressID, clothingTypeID, laundryItemID string, actors map[string]string, days int, rng *rand.Rand) error {
 	for offset := days; offset >= 1; offset-- {
 		day := time.Now().AddDate(0, 0, -offset)
-		numOrders := 1
-		if offset%2 == 0 {
-			numOrders = 2
-		}
+		numOrders := rng.Intn(4) + 1 // random 1-4 orders per day
 
 		for i := 0; i < numOrders; i++ {
 			invoice := fmt.Sprintf("%s-%s-%d", invoicePrefix, day.Format("20060102"), i+1)
-			totalPrice := 30000.0 + float64(offset%5)*4000 + float64(i)*6000
+			// random price between 25000-150000 with realistic variation
+			totalPrice := 25000.0 + rng.Float64()*125000
 
 			orderID, created, err := ensureHistoricalOrder(ctx, pool, invoice, customerID, outletID, addressID, totalPrice, day)
 			if err != nil {
@@ -825,9 +858,8 @@ type normalizedItemSeed struct {
 }
 
 // ensureBypassRequest seeds one bypass_requests row with a manufactured
-// 1-item discrepancy (expected 5, actual 4) against the order's clothing
-// breakdown, in the given final status. Idempotent: skipped if a bypass
-// request already exists for this order+station.
+// discrepancy across 5 clothing types, in the given final status. Idempotent:
+// skipped if a bypass request already exists for this order+station.
 func ensureBypassRequest(ctx context.Context, pool *pgxpool.Pool, orderID, station, requestedBy, clothingTypeID, status, reviewedBy, adminNotes string) error {
 	var existing string
 	err := pool.QueryRow(ctx, "SELECT id FROM bypass_requests WHERE order_id = $1 AND station = $2", orderID, station).Scan(&existing)
@@ -838,13 +870,43 @@ func ensureBypassRequest(ctx context.Context, pool *pgxpool.Pool, orderID, stati
 		return fmt.Errorf("bypass_requests lookup: %w", err)
 	}
 
-	expectedJSON, err := json.Marshal([]normalizedItemSeed{{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 5}})
+	// Build expected items: 5 different clothing types
+	expectedItems := []normalizedItemSeed{
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Celana", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Jaket", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kaos", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Rok", Quantity: 5},
+	}
+	expectedJSON, err := json.Marshal(expectedItems)
 	if err != nil {
 		return fmt.Errorf("marshal expected_items: %w", err)
 	}
-	actualJSON, err := json.Marshal([]normalizedItemSeed{{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 4}})
+
+	// Build actual items: reduce first item's quantity by 1 (5 -> 4)
+	actualItems := []normalizedItemSeed{
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kemeja", Quantity: 4},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Celana", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Jaket", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Kaos", Quantity: 5},
+		{ItemType: "clothing_type", ItemID: clothingTypeID, Name: "Rok", Quantity: 5},
+	}
+	actualJSON, err := json.Marshal(actualItems)
 	if err != nil {
 		return fmt.Errorf("marshal actual_items: %w", err)
+	}
+
+	// Vary description based on station
+	var description string
+	switch station {
+	case "washing":
+		description = "Selisih kemeja saat pencucian ulang, kemungkinan terselip"
+	case "ironing":
+		description = "Kemeja hilang saat penyetrikaan, setrikaan lain sempurna"
+	case "packing":
+		description = "Kurang 1 kemeja dalam verifikasi akhir sebelum packing"
+	default:
+		description = "Selisih 1 kemeja saat dihitung ulang"
 	}
 
 	var reviewedByArg *string
@@ -867,7 +929,7 @@ func ensureBypassRequest(ctx context.Context, pool *pgxpool.Pool, orderID, stati
 		)
 		VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, $9, $10)
 	`, orderID, station, requestedBy, expectedJSON, actualJSON,
-		"Selisih 1 kemeja saat dihitung ulang", status, reviewedByArg, adminNotesArg, resolvedAt); err != nil {
+		description, status, reviewedByArg, adminNotesArg, resolvedAt); err != nil {
 		return fmt.Errorf("bypass_requests: %w", err)
 	}
 	return nil
@@ -911,4 +973,168 @@ func lookupWilayahIDs(ctx context.Context, pool *pgxpool.Pool) (provinceID, city
 	`)
 	err = row.Scan(&provinceID, &cityID, &districtID)
 	return provinceID, cityID, districtID, err
+}
+
+// seedHistoricalAttendances backfills 1.5 years of attendance records (excluding today,
+// which is already seeded by ensureAttendanceToday). Distributes status: 70% on_time,
+// 20% late, 10% absent. Skips weekends and uses batch insert for efficiency.
+func seedHistoricalAttendances(ctx context.Context, pool *pgxpool.Pool, rng *rand.Rand) error {
+	// Query all non-admin employees with their outlets and morning shift default
+	type empRow struct {
+		id           string
+		outletID     string
+		email        string
+		shiftStartHr int // 6 for pagi, 14 for sore (queried from employee_shifts)
+	}
+	var employees []empRow
+
+	rows, err := pool.Query(ctx, `
+		SELECT e.id, e.outlet_id, e.email,
+		       COALESCE((SELECT extract(hour FROM ws.start_time)::int
+		                 FROM employee_shifts es
+		                 JOIN work_shifts ws ON ws.id = es.shift_id
+		                 WHERE es.employee_id = e.id LIMIT 1), 6) AS shift_start_hr
+		FROM employees e
+		WHERE e.outlet_id IS NOT NULL AND e.role != 'super_admin'
+		ORDER BY e.email
+	`)
+	if err != nil {
+		return fmt.Errorf("query employees: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var emp empRow
+		if err := rows.Scan(&emp.id, &emp.outletID, &emp.email, &emp.shiftStartHr); err != nil {
+			return fmt.Errorf("scan employee: %w", err)
+		}
+		employees = append(employees, emp)
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("rows error: %w", err)
+	}
+
+	// Generate attendance for last 550 days (roughly 1.5 years), skip weekends
+	const historicalDays = 550
+	now := time.Now().In(shift.JakartaLocation)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, shift.JakartaLocation)
+
+	type attendanceRecord struct {
+		employeeID   string
+		outletID     string
+		date         time.Time
+		checkInTime  *time.Time
+		checkOutTime *time.Time
+		isLate       bool
+		lateMinutes  int
+		status       string
+	}
+	var records []attendanceRecord
+
+	for offset := historicalDays; offset >= 1; offset-- {
+		day := today.AddDate(0, 0, -offset)
+
+		// Skip weekends (0=Sunday, 6=Saturday)
+		dayOfWeek := day.Weekday()
+		if dayOfWeek == 0 || dayOfWeek == 6 {
+			continue
+		}
+
+		for _, emp := range employees {
+			// Determine status: 70% on_time, 20% late, 10% absent
+			statusRand := rng.Float64()
+			var status string
+			var checkInTime *time.Time
+			var checkOutTime *time.Time
+			var isLate bool
+			var lateMinutes int
+
+			shiftStart := emp.shiftStartHr
+
+			if statusRand < 0.10 { // 10% absent
+				status = "absent"
+				isLate = false
+				lateMinutes = 0
+			} else if statusRand < 0.30 { // 20% late
+				status = "late"
+				isLate = true
+				lateMinutes = rng.Intn(25) + 5 // 5-29 minutes late
+
+				// Generate late check-in time (after shift start + late minutes)
+				baseTime := time.Date(day.Year(), day.Month(), day.Day(), shiftStart, 0, 0, 0, day.Location())
+				checkInTimeTmp := baseTime.Add(time.Duration(lateMinutes+rng.Intn(10)) * time.Minute)
+				checkInTime = &checkInTimeTmp
+
+				// Generate check-out time (8 hours after check-in)
+				checkOutTimeTmp := checkInTimeTmp.Add(8 * time.Hour)
+				checkOutTime = &checkOutTimeTmp
+			} else { // 70% on_time
+				status = "on_time"
+				isLate = false
+				lateMinutes = 0
+
+				// Generate on-time check-in (near shift start, -30 to +10 minutes)
+				baseTime := time.Date(day.Year(), day.Month(), day.Day(), shiftStart, 0, 0, 0, day.Location())
+				offsetMinutes := rng.Intn(40) - 30 // -30 to +10 minutes
+				checkInTimeTmp := baseTime.Add(time.Duration(offsetMinutes) * time.Minute)
+				checkInTime = &checkInTimeTmp
+
+				// Generate check-out time (8 hours after check-in)
+				checkOutTimeTmp := checkInTimeTmp.Add(8 * time.Hour)
+				checkOutTime = &checkOutTimeTmp
+			}
+
+			records = append(records, attendanceRecord{
+				employeeID:   emp.id,
+				outletID:     emp.outletID,
+				date:         day,
+				checkInTime:  checkInTime,
+				checkOutTime: checkOutTime,
+				isLate:       isLate,
+				lateMinutes:  lateMinutes,
+				status:       status,
+			})
+		}
+	}
+
+	// Batch insert attendance records to avoid hitting Postgres parameter limit (65,535 params)
+	if len(records) == 0 {
+		return nil
+	}
+
+	const batchSize = 500
+	for batchStart := 0; batchStart < len(records); batchStart += batchSize {
+		batchEnd := batchStart + batchSize
+		if batchEnd > len(records) {
+			batchEnd = len(records)
+		}
+		batch := records[batchStart:batchEnd]
+
+		// Build INSERT statement for this batch
+		query := `
+			INSERT INTO attendances (
+				employee_id, outlet_id, date, check_in_time, check_out_time,
+				is_late, late_minutes, status, created_at, updated_at
+			) VALUES `
+		var args []interface{}
+		for i, rec := range batch {
+			if i > 0 {
+				query += ", "
+			}
+			query += fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, now(), now())",
+				i*8+1, i*8+2, i*8+3, i*8+4, i*8+5, i*8+6, i*8+7, i*8+8)
+			args = append(args, rec.employeeID, rec.outletID, rec.date,
+				rec.checkInTime, rec.checkOutTime, rec.isLate, rec.lateMinutes, rec.status)
+		}
+
+		// Add ON CONFLICT clause to handle re-runs (idempotent)
+		query += ` ON CONFLICT (employee_id, date) DO NOTHING`
+
+		_, err = pool.Exec(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("batch insert attendances (batch %d-%d): %w", batchStart, batchEnd, err)
+		}
+	}
+
+	return nil
 }
