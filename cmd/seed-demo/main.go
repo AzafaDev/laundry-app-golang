@@ -270,7 +270,7 @@ func main() {
 		if created {
 			log.Printf("order seeded: %s (%s)", o.invoice, o.status)
 
-			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, o.actors["outlet_admin"], o.status); err != nil {
+			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, o.actors["outlet_admin"], o.actors["driver"], o.status); err != nil {
 				log.Fatalf("failed to seed contents for order %q: %v", o.invoice, err)
 			}
 		} else {
@@ -513,7 +513,7 @@ func ensureOrder(ctx context.Context, pool *pgxpool.Pool, invoiceNumber, custome
 // exact status ProcessOrder expects to act on, and ProcessOrder 409s with
 // "order_already_processed" if order_items already exist — pre-seeding
 // items there would make the process-order flow untestable in the browser.
-func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothingTypeID, laundryItemID, createdByEmployeeID, status string) error {
+func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothingTypeID, laundryItemID, createdByEmployeeID, driverID, status string) error {
 	if status != "laundry_arrived_outlet" {
 		if _, err := pool.Exec(ctx, `
 			INSERT INTO order_items (order_id, laundry_item_id, quantity, price_at_order)
@@ -532,12 +532,12 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 
 	switch status {
 	case "waiting_pickup_driver":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "available"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "available", ""); err != nil {
 			return err
 		}
 
 	case "laundry_to_outlet":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "in_progress"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "in_progress", driverID); err != nil {
 			return err
 		}
 
@@ -545,12 +545,12 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 		// These stages imply the order has already been picked up from the
 		// customer, so a bare order with no driver_tasks at all would be
 		// incoherent with its own status.
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed", driverID); err != nil {
 			return err
 		}
 
 	case "waiting_payment":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed", driverID); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "pending", false); err != nil {
@@ -558,35 +558,35 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 		}
 
 	case "ready_for_delivery":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed", driverID); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
 			return err
 		}
-		if err := seedDriverTask(ctx, pool, orderID, "delivery", "available"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "available", ""); err != nil {
 			return err
 		}
 
 	case "delivery_to_customer":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed", driverID); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
 			return err
 		}
-		if err := seedDriverTask(ctx, pool, orderID, "delivery", "in_progress"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "in_progress", driverID); err != nil {
 			return err
 		}
 
 	case "received_by_customer", "completed":
-		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "pickup", "completed", driverID); err != nil {
 			return err
 		}
 		if err := seedPayment(ctx, pool, orderID, "paid", true); err != nil {
 			return err
 		}
-		if err := seedDriverTask(ctx, pool, orderID, "delivery", "completed"); err != nil {
+		if err := seedDriverTask(ctx, pool, orderID, "delivery", "completed", driverID); err != nil {
 			return err
 		}
 	}
@@ -594,19 +594,19 @@ func seedOrderContents(ctx context.Context, pool *pgxpool.Pool, orderID, clothin
 	return nil
 }
 
-func seedDriverTask(ctx context.Context, pool *pgxpool.Pool, orderID, taskType, stage string) error {
+func seedDriverTask(ctx context.Context, pool *pgxpool.Pool, orderID, taskType, stage, driverID string) error {
 	var err error
 	switch stage {
 	case "completed":
 		_, err = pool.Exec(ctx, `
-			INSERT INTO driver_tasks (order_id, task_type, status, taken_at, completed_at)
-			VALUES ($1, $2, 'completed', now(), now())
-		`, orderID, taskType)
+			INSERT INTO driver_tasks (order_id, task_type, status, driver_id, taken_at, completed_at)
+			VALUES ($1, $2, 'completed', $3, now(), now())
+		`, orderID, taskType, driverID)
 	case "in_progress":
 		_, err = pool.Exec(ctx, `
-			INSERT INTO driver_tasks (order_id, task_type, status, taken_at)
-			VALUES ($1, $2, 'in_progress', now())
-		`, orderID, taskType)
+			INSERT INTO driver_tasks (order_id, task_type, status, driver_id, taken_at)
+			VALUES ($1, $2, 'in_progress', $3, now())
+		`, orderID, taskType, driverID)
 	default:
 		_, err = pool.Exec(ctx, `
 			INSERT INTO driver_tasks (order_id, task_type, status)
@@ -834,7 +834,7 @@ func seedHistoricalReportData(ctx context.Context, pool *pgxpool.Pool, invoicePr
 				continue
 			}
 
-			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, actors["outlet_admin"], "completed"); err != nil {
+			if err := seedOrderContents(ctx, pool, orderID, clothingTypeID, laundryItemID, actors["outlet_admin"], actors["driver"], "completed"); err != nil {
 				return fmt.Errorf("contents %s: %w", invoice, err)
 			}
 
