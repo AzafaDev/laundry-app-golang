@@ -2,6 +2,8 @@
 
 A production-style backend for a multi-outlet laundry service — order pipeline, driver dispatch, payment integration, attendance tracking, and admin reporting — built in Go as a full port of an existing Node/TypeScript service, with several deliberate architecture improvements along the way.
 
+Frontend: [laundry-app-typescript-react](https://github.com/AzafaDev/laundry-app-typescript-react) (React + TypeScript)
+
 ## Why this project exists
 
 This started as a 1:1 port of a working Node.js/Express/Prisma backend, then grew into an exercise in doing the same domain *better* in Go: replacing ad-hoc concurrency handling with proper optimistic-concurrency SQL patterns, swapping Socket.IO for a lighter SSE implementation, and closing real security gaps (CSRF, rate limiting, structured error responses) that existed in the original.
@@ -43,6 +45,13 @@ Every non-trivial change was verified two ways before being considered done: aut
 - **Notifications** — in-app, delivered in real time over SSE.
 - **Cron** — auto-completion of orders after a confirmation window, expired-token cleanup — runnable on a schedule or triggered manually by an admin.
 
+## Live demo
+
+- Frontend: https://laundry-app-typescript-react.vercel.app
+- API: https://laundry-app-api.my.id (health check: `/health`)
+
+Demo accounts (all share password `demo123`) — see [Getting started](#getting-started) below.
+
 ## Getting started
 
 **Prerequisites:** Go 1.26+, PostgreSQL, [`golang-migrate`](https://github.com/golang-migrate/migrate) CLI, [`air`](https://github.com/air-verse/air) (optional, for hot reload).
@@ -67,14 +76,16 @@ make seed-admin
 make seed-demo
 # Every seeded account (all employee roles + all customers) shares the
 # password `demo123`, e.g.:
-#   admin@demo.laundry            (super_admin)
-#   kemang.admin@demo.laundry      (outlet_admin, Kemang outlet)
-#   kemang.washing@demo.laundry    (washing_worker)
-#   kemang.ironing@demo.laundry    (ironing_worker)
-#   kemang.packing@demo.laundry    (packing_worker)
-#   kemang.driver@demo.laundry     (driver)
-#   (same set again with a "sudirman." prefix for the second outlet)
-#   andi@demo.customer, maya@demo.customer, bayu@demo.customer, rina@demo.customer
+#   admin@demo.laundry              (super_admin)
+#   outlet.admin@demo.laundry       (outlet_admin, Laundry Kilat - Curug)
+#   washing@demo.laundry            (washing_worker, Curug, shift pagi)
+#   washing.sore@demo.laundry       (washing_worker, Curug, shift sore)
+#   ironing@demo.laundry            (ironing_worker, Curug)
+#   packing@demo.laundry            (packing_worker, Curug)
+#   driver@demo.laundry             (driver, Curug)
+#   (same role set again with a ".bsd" suffix for the second outlet,
+#    Laundry Kilat - BSD, e.g. outlet.admin.bsd@demo.laundry)
+#   rina@demo.customer, clean@demo.customer
 # Safe to re-run — it's idempotent and won't create duplicates.
 
 # 5. Run the API
@@ -120,6 +131,19 @@ internal/
   testutil/     shared test fixtures and helpers
 migrations/     golang-migrate SQL migrations, applied in order
 ```
+
+## Deployment
+
+Single VPS (2 vCPU/2GB), no containers:
+
+```
+Internet → HTTPS (Caddy, auto TLS via Let's Encrypt) → Go binary (systemd, localhost:8080) → PostgreSQL (localhost:5432)
+```
+
+- **Caddy** terminates TLS and reverse-proxies to the Go binary; only Caddy is exposed to the internet — the API and Postgres are bound to localhost.
+- **systemd** keeps the API running and restarts it on failure.
+- Deploys are manual: `git pull && go build -o bin/server ./cmd/api && sudo systemctl restart laundry-api`.
+- No CI/CD yet — every deploy is a manual SSH + rebuild.
 
 ## Known limitations
 
