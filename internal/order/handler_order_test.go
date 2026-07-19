@@ -255,3 +255,116 @@ func TestCreateOrder_RejectsWhenCustomerHasActiveOrder(t *testing.T) {
 		t.Fatalf("expected 409, got %d: %s", second.Code, second.Body.String())
 	}
 }
+
+func TestListOrders_MultiStatusFilter(t *testing.T) {
+	app := testutil.NewTestApp(t)
+
+	customer := app.CreateTestCustomer(t)
+	outlet := app.CreateTestOutlet(t)
+	address := app.CreateTestAddress(t, customer.ID)
+
+	washing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusWashing)
+	ironing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusIroning)
+	packing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusPacking)
+	completed := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusCompleted)
+
+	cookies := testutil.LoginAs(t, app.Router, "/api/v1/customer/auth/login", customer.Email, testutil.TestPassword)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/customer/orders?status=washing,ironing,packing", nil)
+	for _, ck := range cookies {
+		req.AddCookie(ck)
+	}
+	rec := httptest.NewRecorder()
+	app.Router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp order.OrderListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Data) != 3 {
+		t.Errorf("expected 3 orders (washing, ironing, packing), got %d", len(resp.Data))
+	}
+	if resp.TotalCount != 3 {
+		t.Errorf("expected total_count 3, got %d", resp.TotalCount)
+	}
+
+	returnedIDs := make(map[string]bool)
+	for _, o := range resp.Data {
+		returnedIDs[o.ID] = true
+	}
+
+	if !returnedIDs[washing.ID.String()] {
+		t.Errorf("expected washing order %s in results", washing.ID.String())
+	}
+	if !returnedIDs[ironing.ID.String()] {
+		t.Errorf("expected ironing order %s in results", ironing.ID.String())
+	}
+	if !returnedIDs[packing.ID.String()] {
+		t.Errorf("expected packing order %s in results", packing.ID.String())
+	}
+	if returnedIDs[completed.ID.String()] {
+		t.Errorf("completed order %s should NOT be in results", completed.ID.String())
+	}
+}
+
+func TestListOutletOrders_MultiStatusFilter(t *testing.T) {
+	app := testutil.NewTestApp(t)
+
+	customer := app.CreateTestCustomer(t)
+	outlet := app.CreateTestOutlet(t)
+	address := app.CreateTestAddress(t, customer.ID)
+
+	washing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusWashing)
+	ironing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusIroning)
+	packing := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusPacking)
+	completed := app.CreateTestOrder(t, customer.ID, outlet.ID, address.ID, order.StatusCompleted)
+
+	employee := app.CreateTestEmployee(t, "outlet_admin", outlet.ID)
+	cookies := testutil.LoginAs(t, app.Router, "/api/v1/employee/auth/login", employee.Email, testutil.TestPassword)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/employee/admin/orders?status=washing,ironing,packing", nil)
+	for _, ck := range cookies {
+		req.AddCookie(ck)
+	}
+	rec := httptest.NewRecorder()
+	app.Router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp order.OrderListResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Data) != 3 {
+		t.Errorf("expected 3 orders (washing, ironing, packing), got %d", len(resp.Data))
+	}
+	if resp.TotalCount != 3 {
+		t.Errorf("expected total_count 3, got %d", resp.TotalCount)
+	}
+
+	returnedIDs := make(map[string]bool)
+	for _, o := range resp.Data {
+		returnedIDs[o.ID] = true
+	}
+
+	if !returnedIDs[washing.ID.String()] {
+		t.Errorf("expected washing order %s in results", washing.ID.String())
+	}
+	if !returnedIDs[ironing.ID.String()] {
+		t.Errorf("expected ironing order %s in results", ironing.ID.String())
+	}
+	if !returnedIDs[packing.ID.String()] {
+		t.Errorf("expected packing order %s in results", packing.ID.String())
+	}
+	if returnedIDs[completed.ID.String()] {
+		t.Errorf("completed order %s should NOT be in results", completed.ID.String())
+	}
+}

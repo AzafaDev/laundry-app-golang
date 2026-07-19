@@ -11,6 +11,7 @@ import (
 	"laundry-app-with-golang/internal/sse"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -173,9 +174,9 @@ func (h *Handler) ListOrders(c *gin.Context) {
 
 	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
-	status := pgtype.Text{Valid: false}
+	var statusList []string
 	if v := c.Query("status"); v != "" {
-		status = pgtype.Text{String: v, Valid: true}
+		statusList = strings.Split(v, ",")
 	}
 
 	search := pgtype.Text{Valid: false}
@@ -199,7 +200,7 @@ func (h *Handler) ListOrders(c *gin.Context) {
 
 	orders, err := h.Queries.ListOrders(c.Request.Context(), db.ListOrdersParams{
 		CustomerID: customerID,
-		Status:     status,
+		Status:     statusList,
 		Search:     search,
 		DateFrom:   dateFrom,
 		DateTo:     dateTo,
@@ -213,7 +214,7 @@ func (h *Handler) ListOrders(c *gin.Context) {
 
 	totalCount, err := h.Queries.CountOrders(c.Request.Context(), db.CountOrdersParams{
 		CustomerID: customerID,
-		Status:     status,
+		Status:     statusList,
 		Search:     search,
 		DateFrom:   dateFrom,
 		DateTo:     dateTo,
@@ -242,9 +243,9 @@ func (h *Handler) ListOutletOrders(c *gin.Context) {
 
 	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
-	status := pgtype.Text{Valid: false}
+	var statusList []string
 	if v := c.Query("status"); v != "" {
-		status = pgtype.Text{String: v, Valid: true}
+		statusList = strings.Split(v, ",")
 	}
 
 	search := pgtype.Text{Valid: false}
@@ -268,7 +269,7 @@ func (h *Handler) ListOutletOrders(c *gin.Context) {
 
 	orders, err := h.Queries.ListOrdersByOutlet(c.Request.Context(), db.ListOrdersByOutletParams{
 		OutletID: outletID,
-		Status:   status,
+		Status:   statusList,
 		Search:   search,
 		DateFrom: dateFrom,
 		DateTo:   dateTo,
@@ -282,7 +283,7 @@ func (h *Handler) ListOutletOrders(c *gin.Context) {
 
 	totalCount, err := h.Queries.CountOrdersByOutlet(c.Request.Context(), db.CountOrdersByOutletParams{
 		OutletID: outletID,
-		Status:   status,
+		Status:   statusList,
 		Search:   search,
 		DateFrom: dateFrom,
 		DateTo:   dateTo,

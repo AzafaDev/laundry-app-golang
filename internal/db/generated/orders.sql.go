@@ -110,7 +110,7 @@ func (q *Queries) CountActiveOrdersByCustomer(ctx context.Context, customerID pg
 const countOrders = `-- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE customer_id = $1
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text[] IS NULL OR array_length($2::text[], 1) IS NULL OR status = ANY($2::text[]))
   AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
   AND ($4::timestamptz IS NULL OR created_at >= $4)
   AND ($5::timestamptz IS NULL OR created_at <= $5)
@@ -118,7 +118,7 @@ WHERE customer_id = $1
 
 type CountOrdersParams struct {
 	CustomerID pgtype.UUID        `json:"customer_id"`
-	Status     pgtype.Text        `json:"status"`
+	Status     []string           `json:"status"`
 	Search     pgtype.Text        `json:"search"`
 	DateFrom   pgtype.Timestamptz `json:"date_from"`
 	DateTo     pgtype.Timestamptz `json:"date_to"`
@@ -140,7 +140,7 @@ func (q *Queries) CountOrders(ctx context.Context, arg CountOrdersParams) (int64
 const countOrdersByOutlet = `-- name: CountOrdersByOutlet :one
 SELECT count(*) FROM orders
 WHERE outlet_id = $1
-  AND ($2::text IS NULL OR status = $2)
+  AND ($2::text[] IS NULL OR array_length($2::text[], 1) IS NULL OR status = ANY($2::text[]))
   AND ($3::text IS NULL OR invoice_number ILIKE '%' || $3 || '%')
   AND ($4::timestamptz IS NULL OR created_at >= $4)
   AND ($5::timestamptz IS NULL OR created_at <= $5)
@@ -148,7 +148,7 @@ WHERE outlet_id = $1
 
 type CountOrdersByOutletParams struct {
 	OutletID pgtype.UUID        `json:"outlet_id"`
-	Status   pgtype.Text        `json:"status"`
+	Status   []string           `json:"status"`
 	Search   pgtype.Text        `json:"search"`
 	DateFrom pgtype.Timestamptz `json:"date_from"`
 	DateTo   pgtype.Timestamptz `json:"date_to"`
@@ -372,7 +372,7 @@ SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, o
 FROM orders
 LEFT JOIN outlets o ON o.id = orders.outlet_id
 WHERE orders.customer_id = $1
-  AND ($2::text IS NULL OR orders.status = $2)
+  AND ($2::text[] IS NULL OR array_length($2::text[], 1) IS NULL OR orders.status = ANY($2::text[]))
   AND ($3::text IS NULL OR orders.invoice_number ILIKE '%' || $3 || '%')
   AND ($4::timestamptz IS NULL OR orders.created_at >= $4)
   AND ($5::timestamptz IS NULL OR orders.created_at <= $5)
@@ -382,7 +382,7 @@ LIMIT $7 OFFSET $6
 
 type ListOrdersParams struct {
 	CustomerID pgtype.UUID        `json:"customer_id"`
-	Status     pgtype.Text        `json:"status"`
+	Status     []string           `json:"status"`
 	Search     pgtype.Text        `json:"search"`
 	DateFrom   pgtype.Timestamptz `json:"date_from"`
 	DateTo     pgtype.Timestamptz `json:"date_to"`
@@ -461,7 +461,7 @@ FROM orders
 LEFT JOIN outlets o ON o.id = orders.outlet_id
 LEFT JOIN customers c ON c.id = orders.customer_id
 WHERE orders.outlet_id = $1
-  AND ($2::text IS NULL OR orders.status = $2)
+  AND ($2::text[] IS NULL OR array_length($2::text[], 1) IS NULL OR orders.status = ANY($2::text[]))
   AND ($3::text IS NULL OR orders.invoice_number ILIKE '%' || $3 || '%')
   AND ($4::timestamptz IS NULL OR orders.created_at >= $4)
   AND ($5::timestamptz IS NULL OR orders.created_at <= $5)
@@ -471,7 +471,7 @@ LIMIT $7 OFFSET $6
 
 type ListOrdersByOutletParams struct {
 	OutletID pgtype.UUID        `json:"outlet_id"`
-	Status   pgtype.Text        `json:"status"`
+	Status   []string           `json:"status"`
 	Search   pgtype.Text        `json:"search"`
 	DateFrom pgtype.Timestamptz `json:"date_from"`
 	DateTo   pgtype.Timestamptz `json:"date_to"`
