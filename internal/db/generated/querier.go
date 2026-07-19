@@ -138,7 +138,7 @@ type Querier interface {
 	ListActiveLaundryItems(ctx context.Context) ([]LaundryItem, error)
 	ListActiveOutlets(ctx context.Context) ([]Outlet, error)
 	ListAddresses(ctx context.Context, customerID pgtype.UUID) ([]ListAddressesRow, error)
-	ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]Attendance, error)
+	ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]ListAttendanceReportRow, error)
 	ListAttendancesByEmployee(ctx context.Context, arg ListAttendancesByEmployeeParams) ([]ListAttendancesByEmployeeRow, error)
 	ListAvailableDriverTasksByType(ctx context.Context, taskType string) ([]DriverTask, error)
 	ListBypassRequests(ctx context.Context, arg ListBypassRequestsParams) ([]BypassRequest, error)

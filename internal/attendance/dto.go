@@ -13,6 +13,7 @@ type CheckOutRequest struct {
 type AttendanceResponse struct {
 	ID           string `json:"id"`
 	EmployeeID   string `json:"employee_id"`
+	EmployeeName string `json:"employee_name,omitempty"`
 	OutletID     string `json:"outlet_id"`
 	OutletName   string `json:"outlet_name,omitempty"`
 	Date         string `json:"date"`

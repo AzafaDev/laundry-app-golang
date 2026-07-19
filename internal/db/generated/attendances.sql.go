@@ -242,12 +242,15 @@ func (q *Queries) GetAttendanceByEmployeeAndDate(ctx context.Context, arg GetAtt
 }
 
 const listAttendanceReport = `-- name: ListAttendanceReport :many
-SELECT id, employee_id, outlet_id, date, check_in_time, check_in_latitude, check_in_longitude, check_out_time, check_out_latitude, check_out_longitude, notes, is_late, late_minutes, status, created_at, updated_at FROM attendances
-WHERE ($1::uuid IS NULL OR outlet_id = $1)
-  AND ($2::uuid IS NULL OR employee_id = $2)
-  AND ($3::text IS NULL OR status = $3)
-  AND ($4::date IS NULL OR date >= $4)
-  AND ($5::date IS NULL OR date <= $5)
+SELECT attendances.id, attendances.employee_id, attendances.outlet_id, attendances.date, attendances.check_in_time, attendances.check_in_latitude, attendances.check_in_longitude, attendances.check_out_time, attendances.check_out_latitude, attendances.check_out_longitude, attendances.notes, attendances.is_late, attendances.late_minutes, attendances.status, attendances.created_at, attendances.updated_at, e.full_name AS employee_name, o.name AS outlet_name
+FROM attendances
+LEFT JOIN employees e ON e.id = attendances.employee_id
+LEFT JOIN outlets o ON o.id = attendances.outlet_id
+WHERE ($1::uuid IS NULL OR attendances.outlet_id = $1)
+  AND ($2::uuid IS NULL OR attendances.employee_id = $2)
+  AND ($3::text IS NULL OR attendances.status = $3)
+  AND ($4::date IS NULL OR attendances.date >= $4)
+  AND ($5::date IS NULL OR attendances.date <= $5)
 ORDER BY date DESC
 LIMIT $7 OFFSET $6
 `
@@ -262,7 +265,28 @@ type ListAttendanceReportParams struct {
 	Limit      int32       `json:"limit"`
 }
 
-func (q *Queries) ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]Attendance, error) {
+type ListAttendanceReportRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	EmployeeID        pgtype.UUID        `json:"employee_id"`
+	OutletID          pgtype.UUID        `json:"outlet_id"`
+	Date              pgtype.Date        `json:"date"`
+	CheckInTime       pgtype.Timestamptz `json:"check_in_time"`
+	CheckInLatitude   pgtype.Numeric     `json:"check_in_latitude"`
+	CheckInLongitude  pgtype.Numeric     `json:"check_in_longitude"`
+	CheckOutTime      pgtype.Timestamptz `json:"check_out_time"`
+	CheckOutLatitude  pgtype.Numeric     `json:"check_out_latitude"`
+	CheckOutLongitude pgtype.Numeric     `json:"check_out_longitude"`
+	Notes             pgtype.Text        `json:"notes"`
+	IsLate            pgtype.Bool        `json:"is_late"`
+	LateMinutes       pgtype.Int4        `json:"late_minutes"`
+	Status            pgtype.Text        `json:"status"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	EmployeeName      pgtype.Text        `json:"employee_name"`
+	OutletName        pgtype.Text        `json:"outlet_name"`
+}
+
+func (q *Queries) ListAttendanceReport(ctx context.Context, arg ListAttendanceReportParams) ([]ListAttendanceReportRow, error) {
 	rows, err := q.db.Query(ctx, listAttendanceReport,
 		arg.OutletID,
 		arg.EmployeeID,
@@ -276,9 +300,9 @@ func (q *Queries) ListAttendanceReport(ctx context.Context, arg ListAttendanceRe
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Attendance
+	var items []ListAttendanceReportRow
 	for rows.Next() {
-		var i Attendance
+		var i ListAttendanceReportRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.EmployeeID,
@@ -296,6 +320,8 @@ func (q *Queries) ListAttendanceReport(ctx context.Context, arg ListAttendanceRe
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.EmployeeName,
+			&i.OutletName,
 		); err != nil {
 			return nil, err
 		}

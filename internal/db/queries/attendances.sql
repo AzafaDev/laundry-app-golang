@@ -29,12 +29,15 @@ LIMIT $2 OFFSET $3;
 SELECT count(*) FROM attendances WHERE employee_id = $1;
 
 -- name: ListAttendanceReport :many
-SELECT * FROM attendances
-WHERE (sqlc.narg('outlet_id')::uuid IS NULL OR outlet_id = sqlc.narg('outlet_id'))
-  AND (sqlc.narg('employee_id')::uuid IS NULL OR employee_id = sqlc.narg('employee_id'))
-  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status'))
-  AND (sqlc.narg('date_from')::date IS NULL OR date >= sqlc.narg('date_from'))
-  AND (sqlc.narg('date_to')::date IS NULL OR date <= sqlc.narg('date_to'))
+SELECT attendances.*, e.full_name AS employee_name, o.name AS outlet_name
+FROM attendances
+LEFT JOIN employees e ON e.id = attendances.employee_id
+LEFT JOIN outlets o ON o.id = attendances.outlet_id
+WHERE (sqlc.narg('outlet_id')::uuid IS NULL OR attendances.outlet_id = sqlc.narg('outlet_id'))
+  AND (sqlc.narg('employee_id')::uuid IS NULL OR attendances.employee_id = sqlc.narg('employee_id'))
+  AND (sqlc.narg('status')::text IS NULL OR attendances.status = sqlc.narg('status'))
+  AND (sqlc.narg('date_from')::date IS NULL OR attendances.date >= sqlc.narg('date_from'))
+  AND (sqlc.narg('date_to')::date IS NULL OR attendances.date <= sqlc.narg('date_to'))
 ORDER BY date DESC
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 

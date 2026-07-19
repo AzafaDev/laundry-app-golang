@@ -48,7 +48,7 @@ func (h *Handler) ListAttendanceReport(c *gin.Context) {
 
 	data := make([]AttendanceResponse, 0, len(logs))
 	for _, a := range logs {
-		data = append(data, toAttendanceResponse(a))
+		data = append(data, toAttendanceReportResponse(a))
 	}
 
 	c.JSON(http.StatusOK, AttendanceListResponse{Data: data, TotalCount: totalCount})
@@ -86,13 +86,13 @@ func (h *Handler) ExportAttendanceReport(c *gin.Context) {
 		return
 	}
 
-	header := []string{"employee_id", "outlet_id", "date", "check_in_time", "check_out_time", "is_late", "late_minutes", "status"}
+	header := []string{"employee_name", "outlet_name", "date", "check_in_time", "check_out_time", "is_late", "late_minutes", "status"}
 	rows := make([][]string, 0, len(logs))
 	for _, a := range logs {
-		resp := toAttendanceResponse(a)
+		resp := toAttendanceReportResponse(a)
 		rows = append(rows, []string{
-			resp.EmployeeID,
-			resp.OutletID,
+			resp.EmployeeName,
+			resp.OutletName,
 			resp.Date,
 			resp.CheckInTime,
 			resp.CheckOutTime,
