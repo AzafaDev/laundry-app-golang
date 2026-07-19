@@ -89,21 +89,21 @@ func main() {
 
 	employeeIDs := map[string]string{} // email -> id
 	for _, e := range []employeeSeed{
-		{"Budi Santoso", "admin@demo.laundry", "super_admin", "", ""},
-		{"Siti Aminah", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "pagi"},
-		{"Dewi Lestari", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "pagi"},
-		{"Rian Saputra", "washing.sore@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "sore"},
-		{"Fitriani", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "pagi"},
-		{"Bayu Aji", "ironing.sore@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "sore"},
-		{"Yuni Kartika", "packing@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "pagi"},
-		{"Nanda Putri", "packing.sore@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "sore"},
-		{"Dedi Kurniawan", "driver@demo.laundry", "driver", "Laundry Kilat - Curug", "pagi"},
-		{"Eko Prasetyo", "driver.sore@demo.laundry", "driver", "Laundry Kilat - Curug", "sore"},
-		{"Rizky Ramadhan", "outlet.admin.bsd@demo.laundry", "outlet_admin", "Laundry Kilat - BSD", "pagi"},
-		{"Sri Wahyuni", "washing.bsd@demo.laundry", "washing_worker", "Laundry Kilat - BSD", "pagi"},
-		{"Agus Santoso", "ironing.bsd@demo.laundry", "ironing_worker", "Laundry Kilat - BSD", "pagi"},
-		{"Lestari Wulandari", "packing.bsd@demo.laundry", "packing_worker", "Laundry Kilat - BSD", "pagi"},
-		{"Hendra Gunawan", "driver.bsd@demo.laundry", "driver", "Laundry Kilat - BSD", "pagi"},
+		{"Super Admin", "admin@demo.laundry", "super_admin", "", ""},
+		{"Outlet Admin", "outlet.admin@demo.laundry", "outlet_admin", "Laundry Kilat - Curug", "pagi"},
+		{"Washing Worker", "washing@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Washing Worker - Sore", "washing.sore@demo.laundry", "washing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Ironing Worker", "ironing@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Ironing Worker - Sore", "ironing.sore@demo.laundry", "ironing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Packing Worker", "packing@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "pagi"},
+		{"Packing Worker - Sore", "packing.sore@demo.laundry", "packing_worker", "Laundry Kilat - Curug", "sore"},
+		{"Driver", "driver@demo.laundry", "driver", "Laundry Kilat - Curug", "pagi"},
+		{"Driver - Sore", "driver.sore@demo.laundry", "driver", "Laundry Kilat - Curug", "sore"},
+		{"Outlet Admin 2", "outlet.admin.bsd@demo.laundry", "outlet_admin", "Laundry Kilat - BSD", "pagi"},
+		{"Washing Worker 2", "washing.bsd@demo.laundry", "washing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Ironing Worker 2", "ironing.bsd@demo.laundry", "ironing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Packing Worker 2", "packing.bsd@demo.laundry", "packing_worker", "Laundry Kilat - BSD", "pagi"},
+		{"Driver 2", "driver.bsd@demo.laundry", "driver", "Laundry Kilat - BSD", "pagi"},
 	} {
 		var outletID *string
 		if e.outlet != "" {
