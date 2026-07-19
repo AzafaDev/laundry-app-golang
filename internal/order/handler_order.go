@@ -165,6 +165,60 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, resp)
 }
 
+// EstimateDeliveryFee returns the estimated delivery fee for a given pickup address.
+// Customer-facing read-only endpoint: GET /api/v1/customer/orders/estimate-fee?pickup_address_id=...
+func (h *Handler) EstimateDeliveryFee(c *gin.Context) {
+	customerID, err := apphelper.CurrentCustomerID(c)
+	if err != nil {
+		apperr.RespondError(c, http.StatusUnauthorized, "invalid_session")
+		return
+	}
+
+	pickupAddressIDStr := c.Query("pickup_address_id")
+	if pickupAddressIDStr == "" {
+		apperr.RespondError(c, http.StatusBadRequest, "missing_pickup_address_id")
+		return
+	}
+
+	var pickupAddressID pgtype.UUID
+	if err := pickupAddressID.Scan(pickupAddressIDStr); err != nil {
+		apperr.RespondError(c, http.StatusBadRequest, "invalid_pickup_address_id")
+		return
+	}
+
+	address, err := h.Queries.GetAddressByID(c.Request.Context(), db.GetAddressByIDParams{
+		ID:         pickupAddressID,
+		CustomerID: customerID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		apperr.RespondError(c, http.StatusNotFound, "address_not_found")
+		return
+	}
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	activeOutlets, err := h.Queries.ListActiveOutlets(c.Request.Context())
+	if err != nil {
+		apperr.RespondInternalError(c, err)
+		return
+	}
+
+	outlet, distanceKM, ok := nearestOutlet(activeOutlets, apphelper.NumericToFloat64(address.Latitude), apphelper.NumericToFloat64(address.Longitude))
+	if !ok {
+		apperr.RespondError(c, http.StatusBadRequest, "no_outlet_in_range")
+		return
+	}
+
+	deliveryFee := calculateDeliveryFee(distanceKM)
+
+	c.JSON(http.StatusOK, gin.H{
+		"delivery_fee": deliveryFee,
+		"outlet_name":  outlet.Name,
+	})
+}
+
 func (h *Handler) ListOrders(c *gin.Context) {
 	customerID, err := apphelper.CurrentCustomerID(c)
 	if err != nil {

@@ -96,6 +96,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/customer/geocode/search", authMiddleware, customerHandler.SearchGeocode)
 
 	router.POST("/api/v1/customer/orders", authMiddleware, csrfMiddleware, orderHandler.CreateOrder)
+	router.GET("/api/v1/customer/orders/estimate-fee", authMiddleware, orderHandler.EstimateDeliveryFee)
 	router.GET("/api/v1/customer/orders", authMiddleware, orderHandler.ListOrders)
 	router.GET("/api/v1/customer/orders/:id", authMiddleware, orderHandler.GetOrderDetail)
 	router.POST("/api/v1/customer/orders/:id/complaint", authMiddleware, csrfMiddleware, orderHandler.CreateComplaint)
