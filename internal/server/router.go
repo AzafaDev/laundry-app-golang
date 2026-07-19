@@ -127,11 +127,12 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.GET("/api/v1/employee/profile", employeeAuthMiddleware, employeeHandler.Profile)
 	router.PATCH("/api/v1/employee/profile/password", employeeAuthMiddleware, csrfMiddleware, employeeHandler.ChangePassword)
 
-	router.POST("/api/v1/employee/attendance/check-in", employeeAuthMiddleware, csrfMiddleware, attendanceHandler.CheckIn)
-	router.POST("/api/v1/employee/attendance/check-out", employeeAuthMiddleware, csrfMiddleware, attendanceHandler.CheckOut)
-	router.GET("/api/v1/employee/attendance/my-logs", employeeAuthMiddleware, attendanceHandler.MyAttendanceLogs)
-	router.GET("/api/v1/employee/attendance/today", employeeAuthMiddleware, attendanceHandler.TodayAttendance)
-	router.GET("/api/v1/employee/attendance/current-shift", employeeAuthMiddleware, attendanceHandler.CurrentShift)
+	staffRoles := middleware.RequireRole("washing_worker", "ironing_worker", "packing_worker", "driver")
+	router.POST("/api/v1/employee/attendance/check-in", employeeAuthMiddleware, csrfMiddleware, staffRoles, attendanceHandler.CheckIn)
+	router.POST("/api/v1/employee/attendance/check-out", employeeAuthMiddleware, csrfMiddleware, staffRoles, attendanceHandler.CheckOut)
+	router.GET("/api/v1/employee/attendance/my-logs", employeeAuthMiddleware, staffRoles, attendanceHandler.MyAttendanceLogs)
+	router.GET("/api/v1/employee/attendance/today", employeeAuthMiddleware, staffRoles, attendanceHandler.TodayAttendance)
+	router.GET("/api/v1/employee/attendance/current-shift", employeeAuthMiddleware, staffRoles, attendanceHandler.CurrentShift)
 
 	router.GET("/api/v1/employee/notifications", employeeAuthMiddleware, notificationHandler.ListEmployeeNotifications)
 	router.GET("/api/v1/employee/notifications/unread-count", employeeAuthMiddleware, notificationHandler.GetEmployeeUnreadCount)
