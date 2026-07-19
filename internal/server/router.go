@@ -196,6 +196,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 
 	router.GET("/api/v1/employee/admin/orders", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ListOutletOrders)
 	router.GET("/api/v1/employee/admin/orders/pending-process", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.GetPendingProcessOrders)
+	router.GET("/api/v1/employee/admin/orders/:id", employeeAuthMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.GetOutletOrderDetail)
 	router.POST("/api/v1/employee/admin/orders/:id/process", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("outlet_admin"), orderHandler.ProcessOrder)
 
 	router.GET("/api/v1/employee/admin/bypass-requests", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), orderHandler.ListBypassRequests)

@@ -122,6 +122,7 @@ type Querier interface {
 	GetOrderByIDAny(ctx context.Context, id pgtype.UUID) (Order, error)
 	GetOrderByIDWithOutlet(ctx context.Context, arg GetOrderByIDWithOutletParams) (GetOrderByIDWithOutletRow, error)
 	GetOutletByID(ctx context.Context, id pgtype.UUID) (Outlet, error)
+	GetOutletOrderDetail(ctx context.Context, arg GetOutletOrderDetailParams) (GetOutletOrderDetailRow, error)
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetPaymentByGatewayTransactionID(ctx context.Context, gatewayTransactionID pgtype.Text) (Payment, error)
 	GetPaymentByOrderID(ctx context.Context, orderID pgtype.UUID) (Payment, error)

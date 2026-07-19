@@ -25,6 +25,14 @@ FROM orders
 LEFT JOIN outlets o ON o.id = orders.outlet_id
 WHERE orders.id = $1 AND orders.customer_id = $2;
 
+-- name: GetOutletOrderDetail :one
+SELECT orders.*, o.name AS outlet_name, o.address AS outlet_address,
+       c.full_name AS customer_name, c.phone AS customer_phone
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+LEFT JOIN customers c ON c.id = orders.customer_id
+WHERE orders.id = $1 AND orders.outlet_id = $2;
+
 -- name: CountOrders :one
 SELECT count(*) FROM orders
 WHERE customer_id = sqlc.arg('customer_id')

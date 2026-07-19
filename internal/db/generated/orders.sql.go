@@ -387,6 +387,67 @@ func (q *Queries) GetOrderByIDWithOutlet(ctx context.Context, arg GetOrderByIDWi
 	return i, err
 }
 
+const getOutletOrderDetail = `-- name: GetOutletOrderDetail :one
+SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address,
+       c.full_name AS customer_name, c.phone AS customer_phone
+FROM orders
+LEFT JOIN outlets o ON o.id = orders.outlet_id
+LEFT JOIN customers c ON c.id = orders.customer_id
+WHERE orders.id = $1 AND orders.outlet_id = $2
+`
+
+type GetOutletOrderDetailParams struct {
+	ID       pgtype.UUID `json:"id"`
+	OutletID pgtype.UUID `json:"outlet_id"`
+}
+
+type GetOutletOrderDetailRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	InvoiceNumber   string             `json:"invoice_number"`
+	CustomerID      pgtype.UUID        `json:"customer_id"`
+	OutletID        pgtype.UUID        `json:"outlet_id"`
+	PickupAddressID pgtype.UUID        `json:"pickup_address_id"`
+	Status          string             `json:"status"`
+	PickupDate      pgtype.Date        `json:"pickup_date"`
+	DeliveryFee     pgtype.Numeric     `json:"delivery_fee"`
+	TotalPrice      pgtype.Numeric     `json:"total_price"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TotalWeightKg   pgtype.Numeric     `json:"total_weight_kg"`
+	PickupSchedule  pgtype.Timestamptz `json:"pickup_schedule"`
+	AutoConfirmAt   pgtype.Timestamptz `json:"auto_confirm_at"`
+	OutletName      pgtype.Text        `json:"outlet_name"`
+	OutletAddress   pgtype.Text        `json:"outlet_address"`
+	CustomerName    pgtype.Text        `json:"customer_name"`
+	CustomerPhone   pgtype.Text        `json:"customer_phone"`
+}
+
+func (q *Queries) GetOutletOrderDetail(ctx context.Context, arg GetOutletOrderDetailParams) (GetOutletOrderDetailRow, error) {
+	row := q.db.QueryRow(ctx, getOutletOrderDetail, arg.ID, arg.OutletID)
+	var i GetOutletOrderDetailRow
+	err := row.Scan(
+		&i.ID,
+		&i.InvoiceNumber,
+		&i.CustomerID,
+		&i.OutletID,
+		&i.PickupAddressID,
+		&i.Status,
+		&i.PickupDate,
+		&i.DeliveryFee,
+		&i.TotalPrice,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.TotalWeightKg,
+		&i.PickupSchedule,
+		&i.AutoConfirmAt,
+		&i.OutletName,
+		&i.OutletAddress,
+		&i.CustomerName,
+		&i.CustomerPhone,
+	)
+	return i, err
+}
+
 const listOrders = `-- name: ListOrders :many
 SELECT orders.id, orders.invoice_number, orders.customer_id, orders.outlet_id, orders.pickup_address_id, orders.status, orders.pickup_date, orders.delivery_fee, orders.total_price, orders.created_at, orders.updated_at, orders.total_weight_kg, orders.pickup_schedule, orders.auto_confirm_at, o.name AS outlet_name, o.address AS outlet_address
 FROM orders
