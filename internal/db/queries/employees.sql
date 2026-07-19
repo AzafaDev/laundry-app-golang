@@ -16,6 +16,7 @@ LEFT JOIN outlets o ON o.id = employees.outlet_id
 WHERE (employees.deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
   AND (sqlc.narg(role)::text IS NULL OR employees.role = sqlc.narg(role))
   AND (sqlc.narg(search)::text IS NULL OR employees.full_name ILIKE '%' || sqlc.narg(search) || '%' OR employees.email ILIKE '%' || sqlc.narg(search) || '%')
+  AND (sqlc.narg(outlet_id)::uuid IS NULL OR employees.outlet_id = sqlc.narg(outlet_id))
 ORDER BY employees.created_at DESC
 LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
 
@@ -23,7 +24,8 @@ LIMIT sqlc.arg(row_limit) OFFSET sqlc.arg(row_offset);
 SELECT count(*) FROM employees
 WHERE (deleted_at IS NULL OR sqlc.arg(include_deleted)::boolean)
   AND (sqlc.narg(role)::text IS NULL OR role = sqlc.narg(role))
-  AND (sqlc.narg(search)::text IS NULL OR full_name ILIKE '%' || sqlc.narg(search) || '%' OR email ILIKE '%' || sqlc.narg(search) || '%');
+  AND (sqlc.narg(search)::text IS NULL OR full_name ILIKE '%' || sqlc.narg(search) || '%' OR email ILIKE '%' || sqlc.narg(search) || '%')
+  AND (sqlc.narg(outlet_id)::uuid IS NULL OR outlet_id = sqlc.narg(outlet_id));
 
 -- name: GetEmployeeByIDAny :one
 SELECT * FROM employees WHERE id = $1;

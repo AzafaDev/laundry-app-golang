@@ -16,16 +16,23 @@ SELECT count(*) FROM employees
 WHERE (deleted_at IS NULL OR $1::boolean)
   AND ($2::text IS NULL OR role = $2)
   AND ($3::text IS NULL OR full_name ILIKE '%' || $3 || '%' OR email ILIKE '%' || $3 || '%')
+  AND ($4::uuid IS NULL OR outlet_id = $4)
 `
 
 type CountEmployeesParams struct {
 	IncludeDeleted bool        `json:"include_deleted"`
 	Role           pgtype.Text `json:"role"`
 	Search         pgtype.Text `json:"search"`
+	OutletID       pgtype.UUID `json:"outlet_id"`
 }
 
 func (q *Queries) CountEmployees(ctx context.Context, arg CountEmployeesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countEmployees, arg.IncludeDeleted, arg.Role, arg.Search)
+	row := q.db.QueryRow(ctx, countEmployees,
+		arg.IncludeDeleted,
+		arg.Role,
+		arg.Search,
+		arg.OutletID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -275,14 +282,16 @@ LEFT JOIN outlets o ON o.id = employees.outlet_id
 WHERE (employees.deleted_at IS NULL OR $1::boolean)
   AND ($2::text IS NULL OR employees.role = $2)
   AND ($3::text IS NULL OR employees.full_name ILIKE '%' || $3 || '%' OR employees.email ILIKE '%' || $3 || '%')
+  AND ($4::uuid IS NULL OR employees.outlet_id = $4)
 ORDER BY employees.created_at DESC
-LIMIT $5 OFFSET $4
+LIMIT $6 OFFSET $5
 `
 
 type ListEmployeesParams struct {
 	IncludeDeleted bool        `json:"include_deleted"`
 	Role           pgtype.Text `json:"role"`
 	Search         pgtype.Text `json:"search"`
+	OutletID       pgtype.UUID `json:"outlet_id"`
 	RowOffset      int32       `json:"row_offset"`
 	RowLimit       int32       `json:"row_limit"`
 }
@@ -309,6 +318,7 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 		arg.IncludeDeleted,
 		arg.Role,
 		arg.Search,
+		arg.OutletID,
 		arg.RowOffset,
 		arg.RowLimit,
 	)

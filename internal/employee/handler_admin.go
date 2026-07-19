@@ -16,6 +16,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// employeeListFilter resolves the caller-scoped outlet filter for admin
+// employee endpoints: outlet_admin is scoped to their own outlet;
+// super_admin is unscoped unless they explicitly pass ?outlet_id=.
+func employeeListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
+	if apphelper.CurrentEmployeeRole(c) == "outlet_admin" {
+		outletID, ok := apphelper.CurrentEmployeeOutletID(c)
+		return outletID, ok
+	}
+	if v := c.Query("outlet_id"); v != "" {
+		var id pgtype.UUID
+		if err := id.Scan(v); err == nil {
+			return id, true
+		}
+	}
+	return pgtype.UUID{}, false
+}
+
 func (h *Handler) CreateEmployee(c *gin.Context) {
 	var req CreateEmployeeRequest
 
@@ -241,10 +258,13 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 		search = pgtype.Text{String: v, Valid: true}
 	}
 
+	outletID, _ := employeeListFilter(c)
+
 	employees, err := h.Queries.ListEmployees(c.Request.Context(), db.ListEmployeesParams{
 		IncludeDeleted: includeDeleted,
 		Role:           role,
 		Search:         search,
+		OutletID:       outletID,
 		RowLimit:       limit,
 		RowOffset:      offset,
 	})
@@ -257,6 +277,7 @@ func (h *Handler) ListEmployees(c *gin.Context) {
 		IncludeDeleted: includeDeleted,
 		Role:           role,
 		Search:         search,
+		OutletID:       outletID,
 	})
 	if err != nil {
 		apperr.RespondInternalError(c, err)

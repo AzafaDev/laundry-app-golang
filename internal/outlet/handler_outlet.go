@@ -12,19 +12,39 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// outletListFilter resolves the caller-scoped outlet filter for admin
+// outlet endpoints: outlet_admin is scoped to their own outlet;
+// super_admin is unscoped unless they explicitly pass ?outlet_id=.
+func outletListFilter(c *gin.Context) (outletID pgtype.UUID, scoped bool) {
+	if apphelper.CurrentEmployeeRole(c) == "outlet_admin" {
+		outletID, ok := apphelper.CurrentEmployeeOutletID(c)
+		return outletID, ok
+	}
+	if v := c.Query("outlet_id"); v != "" {
+		var id pgtype.UUID
+		if err := id.Scan(v); err == nil {
+			return id, true
+		}
+	}
+	return pgtype.UUID{}, false
+}
+
 func (h *Handler) ListOutlets(c *gin.Context) {
 	limit, offset := apphelper.ParsePagination(c, defaultPageLimit, maxPageLimit)
 
+	outletID, _ := outletListFilter(c)
+
 	outlets, err := h.Queries.ListOutlets(c.Request.Context(), db.ListOutletsParams{
-		Limit:  limit,
-		Offset: offset,
+		OutletID:   outletID,
+		PageLimit:  limit,
+		PageOffset: offset,
 	})
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return
 	}
 
-	totalCount, err := h.Queries.CountOutlets(c.Request.Context())
+	totalCount, err := h.Queries.CountOutlets(c.Request.Context(), outletID)
 	if err != nil {
 		apperr.RespondInternalError(c, err)
 		return

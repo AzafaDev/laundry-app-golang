@@ -138,7 +138,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.PATCH("/api/v1/employee/notifications/:id/read", employeeAuthMiddleware, csrfMiddleware, notificationHandler.MarkEmployeeNotificationRead)
 	router.PATCH("/api/v1/employee/notifications/read-all", employeeAuthMiddleware, csrfMiddleware, notificationHandler.MarkAllEmployeeNotificationsRead)
 
-	router.GET("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.ListEmployees)
+	router.GET("/api/v1/employee/admin/employees", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), employeeHandler.ListEmployees)
 	router.GET("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), employeeHandler.GetEmployeeByIDAdmin)
 	router.POST("/api/v1/employee/admin/employees", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), employeeHandler.CreateEmployee)
 	router.PATCH("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), employeeHandler.UpdateEmployee)
@@ -147,7 +147,7 @@ func NewRouter(customerHandler *customer.Handler, employeeHandler *employee.Hand
 	router.DELETE("/api/v1/employee/admin/employees/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), employeeHandler.SoftDeleteEmployee)
 	router.DELETE("/api/v1/employee/admin/employees/:id/permanent", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), employeeHandler.HardDeleteEmployee)
 
-	router.GET("/api/v1/employee/admin/outlets", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.ListOutlets)
+	router.GET("/api/v1/employee/admin/outlets", employeeAuthMiddleware, middleware.RequireRole("super_admin", "outlet_admin"), outletHandler.ListOutlets)
 	router.GET("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, middleware.RequireRole("super_admin"), outletHandler.GetOutletByID)
 	router.POST("/api/v1/employee/admin/outlets", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), outletHandler.CreateOutlet)
 	router.PATCH("/api/v1/employee/admin/outlets/:id", employeeAuthMiddleware, csrfMiddleware, middleware.RequireRole("super_admin"), outletHandler.UpdateOutlet)

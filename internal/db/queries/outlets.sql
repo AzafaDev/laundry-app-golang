@@ -10,11 +10,14 @@ WHERE id = $1 AND deleted_at IS NULL;
 -- name: ListOutlets :many
 SELECT * FROM outlets
 WHERE deleted_at IS NULL
+  AND (sqlc.narg(outlet_id)::uuid IS NULL OR id = sqlc.narg(outlet_id))
 ORDER BY name
-LIMIT $1 OFFSET $2;
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: CountOutlets :one
-SELECT count(*) FROM outlets WHERE deleted_at IS NULL;
+SELECT count(*) FROM outlets
+WHERE deleted_at IS NULL
+  AND (sqlc.narg(outlet_id)::uuid IS NULL OR id = sqlc.narg(outlet_id));
 
 -- name: UpdateOutlet :one
 UPDATE outlets

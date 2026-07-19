@@ -12,11 +12,13 @@ import (
 )
 
 const countOutlets = `-- name: CountOutlets :one
-SELECT count(*) FROM outlets WHERE deleted_at IS NULL
+SELECT count(*) FROM outlets
+WHERE deleted_at IS NULL
+  AND ($1::uuid IS NULL OR id = $1)
 `
 
-func (q *Queries) CountOutlets(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countOutlets)
+func (q *Queries) CountOutlets(ctx context.Context, outletID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countOutlets, outletID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -124,17 +126,19 @@ func (q *Queries) ListActiveOutlets(ctx context.Context) ([]Outlet, error) {
 const listOutlets = `-- name: ListOutlets :many
 SELECT id, name, address, latitude, longitude, is_active, created_at, updated_at, deleted_at, service_radius_km FROM outlets
 WHERE deleted_at IS NULL
+  AND ($1::uuid IS NULL OR id = $1)
 ORDER BY name
-LIMIT $1 OFFSET $2
+LIMIT $3 OFFSET $2
 `
 
 type ListOutletsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	OutletID   pgtype.UUID `json:"outlet_id"`
+	PageOffset int32       `json:"page_offset"`
+	PageLimit  int32       `json:"page_limit"`
 }
 
 func (q *Queries) ListOutlets(ctx context.Context, arg ListOutletsParams) ([]Outlet, error) {
-	rows, err := q.db.Query(ctx, listOutlets, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listOutlets, arg.OutletID, arg.PageOffset, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

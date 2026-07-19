@@ -44,7 +44,7 @@ type Querier interface {
 	CountOrderItemsByOrder(ctx context.Context, orderID pgtype.UUID) (int64, error)
 	CountOrders(ctx context.Context, arg CountOrdersParams) (int64, error)
 	CountOrdersByOutlet(ctx context.Context, arg CountOrdersByOutletParams) (int64, error)
-	CountOutlets(ctx context.Context) (int64, error)
+	CountOutlets(ctx context.Context, outletID pgtype.UUID) (int64, error)
 	CountPendingBypassRequests(ctx context.Context, outletID pgtype.UUID) (int64, error)
 	CountStationHistoryByEmployee(ctx context.Context, arg CountStationHistoryByEmployeeParams) (int64, error)
 	CountUnreadCustomerNotifications(ctx context.Context, customerID pgtype.UUID) (int64, error)
