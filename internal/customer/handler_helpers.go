@@ -25,6 +25,10 @@ func (h *Handler) cookieSameSite() http.SameSite {
 	return http.SameSiteLaxMode
 }
 
+func (h *Handler) cookieDomain() string {
+	return h.Config.CookieDomain
+}
+
 // currentCustomerID reads the "customer_id" set by the auth middleware and
 // converts it into a pgtype.UUID, along with the raw string form (needed by
 // handlers like UploadAvatar that pass it straight through to other clients).
@@ -76,9 +80,9 @@ func (h *Handler) issueTokens(c *gin.Context, customerID pgtype.UUID, tokenVersi
 	}
 
 	c.SetSameSite(h.cookieSameSite())
-	c.SetCookie("access_token", accessToken, 15*60, "/", "", h.cookieSecure(), true)
-	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", "", h.cookieSecure(), true)
-	c.SetCookie(csrf.CookieName, csrfToken, 7*24*60*60, "/", "", h.cookieSecure(), false)
+	c.SetCookie("access_token", accessToken, 15*60, "/", h.cookieDomain(), h.cookieSecure(), true)
+	c.SetCookie("refresh_token", refreshToken, 7*24*60*60, "/", h.cookieDomain(), h.cookieSecure(), true)
+	c.SetCookie(csrf.CookieName, csrfToken, 7*24*60*60, "/", h.cookieDomain(), h.cookieSecure(), false)
 
 	return accessToken, refreshToken, nil
 }

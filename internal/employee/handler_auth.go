@@ -94,8 +94,8 @@ func (h *Handler) Logout(c *gin.Context) {
 	}
 
 	c.SetSameSite(h.cookieSameSite())
-	c.SetCookie("staff_access_token", "", -1, "/", "", h.cookieSecure(), true)
-	c.SetCookie("staff_refresh_token", "", -1, "/", "", h.cookieSecure(), true)
+	c.SetCookie("staff_access_token", "", -1, "/", h.cookieDomain(), h.cookieSecure(), true)
+	c.SetCookie("staff_refresh_token", "", -1, "/", h.cookieDomain(), h.cookieSecure(), true)
 
 	c.JSON(http.StatusOK, gin.H{})
 }

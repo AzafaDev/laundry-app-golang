@@ -20,6 +20,7 @@ type Config struct {
 	GoogleClientID          string
 	GoogleClientSecret      string
 	FrontendURL             string
+	CookieDomain            string
 	OpenCageAPIKey          string
 	CheckinRadiusMeters     int
 	LateThresholdMinutes    int
@@ -45,6 +46,7 @@ func Load() Config {
 		GoogleClientID:          mustGetEnv("GOOGLE_CLIENT_ID"),
 		GoogleClientSecret:      mustGetEnv("GOOGLE_CLIENT_SECRET"),
 		FrontendURL:             getEnv("FRONTEND_URL", "http://localhost:3000"),
+		CookieDomain:            getEnv("COOKIE_DOMAIN", ""),
 		OpenCageAPIKey:          mustGetEnv("OPENCAGE_API_KEY"),
 		CheckinRadiusMeters:     getEnvInt("CHECKIN_RADIUS_METERS", 500),
 		LateThresholdMinutes:    getEnvInt("LATE_THRESHOLD_MINUTES", 30),

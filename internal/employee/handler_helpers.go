@@ -82,6 +82,10 @@ func (h *Handler) cookieSameSite() http.SameSite {
 	return http.SameSiteLaxMode
 }
 
+func (h *Handler) cookieDomain() string {
+	return h.Config.CookieDomain
+}
+
 // currentEmployeeID reads the "employee_id" set by EmployeeAuthMiddleware and
 // converts it into a pgtype.UUID.
 func (h *Handler) currentEmployeeID(c *gin.Context) (pgtype.UUID, error) {
@@ -133,9 +137,9 @@ func (h *Handler) issueEmployeeTokens(c *gin.Context, employeeID pgtype.UUID, ro
 	}
 
 	c.SetSameSite(h.cookieSameSite())
-	c.SetCookie("staff_access_token", accessToken, 15*60, "/", "", h.cookieSecure(), true)
-	c.SetCookie("staff_refresh_token", refreshToken, 7*24*60*60, "/", "", h.cookieSecure(), true)
-	c.SetCookie(csrf.CookieName, csrfToken, 7*24*60*60, "/", "", h.cookieSecure(), false)
+	c.SetCookie("staff_access_token", accessToken, 15*60, "/", h.cookieDomain(), h.cookieSecure(), true)
+	c.SetCookie("staff_refresh_token", refreshToken, 7*24*60*60, "/", h.cookieDomain(), h.cookieSecure(), true)
+	c.SetCookie(csrf.CookieName, csrfToken, 7*24*60*60, "/", h.cookieDomain(), h.cookieSecure(), false)
 
 	return accessToken, refreshToken, nil
 }

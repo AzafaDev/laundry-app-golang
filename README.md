@@ -47,7 +47,7 @@ Every non-trivial change was verified two ways before being considered done: aut
 
 ## Live demo
 
-- Frontend: https://laundry-app-typescript-react.vercel.app
+- Frontend: https://app.laundry-app-api.my.id
 - API: https://laundry-app-api.my.id (health check: `/health`)
 
 Demo accounts (all share password `demo123`) — see [Getting started](#getting-started) below.
